@@ -1,0 +1,52 @@
+# Operating-system and editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# JavaScript / frontend
+node_modules/
+dist/
+build/
+coverage/
+
+# Logs and runtime state
+*.log
+runtime/
+data/
+cache/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# User media and copyrighted assets
+media/
+library/
+programmes/
+movies/
+adverts/
+idents/
+bumpers/
+
+# CAD exports and temporary files
+*.bak
+*.tmp
+~$*
