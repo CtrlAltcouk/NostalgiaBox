@@ -4,11 +4,22 @@ This roadmap gives the high-level delivery order. Detailed tasks, tests, documen
 
 Dates are deliberately omitted until the architecture and hardware validation are complete.
 
+## Product delivery strategy
+
+NostalgiaBox will be delivered in two experience layers:
+
+1. **Basic Mode** — the first complete, usable product. It recreates the simple experience demonstrated by the original inspiration: boot directly into television playback, switch between continuously running real-time channels, show a compact channel-information overlay and manage everything through the administration web interface.
+2. **Enhanced Guide Mode** — a later feature layer that adds the richer set-top-box experience: a full programme guide, reminders, deeper programme discovery, direct channel selection and additional presentation features.
+
+“Enhanced Guide Mode” is a working name and may change before release. It deliberately avoids using third-party product or service names.
+
+The core engine, catalogue, scheduler, playback system and web administration interface are shared by both modes. Enhanced Guide Mode must extend the core rather than replace or fork it.
+
 ## Phase 0 — Product and project foundation
 
 Define the product, requirements, delivery controls, risks and architecture decisions.
 
-**Exit:** version-one scope and the implementation process are agreed.
+**Exit:** Basic Mode scope, later enhancement boundaries and the implementation process are agreed.
 
 ## Phase 1 — Hardware validation and appliance base
 
@@ -20,56 +31,68 @@ Validate the Dell OptiPlex 7050, select the operating system, prove hardware-acc
 
 Select technologies and prove one continuously advancing real-time channel that tunes at the correct programme offset.
 
-**Exit:** the highest-risk product behaviour is demonstrated on the reference hardware.
+**Exit:** the highest-risk real-time playback behaviour is demonstrated on the reference hardware.
 
-## Phase 3 — Media library and catalogue
+## Phase 3 — Basic media library and administration web UI
 
-Support internal, USB and SMB/NAS sources, scanning, matching, metadata and manual corrections. Plex and Jellyfin follow through adapters rather than becoming required dependencies.
+Support internal storage and SMB/NAS sources first, scan and catalogue media, provide manual corrections, and expose essential setup through the web UI. USB, Plex and Jellyfin follow after the local catalogue is stable.
 
-**Exit:** the internal catalogue is reliable and independent of external media servers.
+**Exit:** media can be added, scanned, corrected and managed without using the Linux desktop or terminal.
 
-## Phase 4 — Channel engine and scheduling
+## Phase 4 — Basic real-time channel engine
 
-Create editable channels, scheduling rules, stable future timelines, seasonal activation and deterministic recovery behaviour.
+Create editable channels, simple content pools, deterministic real-time timelines and safe fallback behaviour. Advanced scheduling rules and seasonal activation are deferred.
 
-**Exit:** multiple channels continuously produce valid now/next schedules.
+**Exit:** multiple basic channels run continuously and resolve the correct current programme and playback offset.
 
-## Phase 5 — Playback coordination and television interface
+## Phase 5 — Basic Mode television experience
 
-Implement channel tuning, pause/resume, channel changes, startup sequence, channel banner, remote navigation and user-friendly recovery.
+Implement appliance startup, full-screen playback, channel up/down, pause/resume, a compact channel-information banner, optional CRT transition, remote input and user-friendly recovery.
 
-**Exit:** core viewing works from the sofa without exposing Linux.
+A full programme-grid interface is not required in this phase.
 
-## Phase 6 — Electronic programme guide and reminders
+**Exit:** NostalgiaBox works like the original simple concept from power-on to everyday channel surfing using only the remote.
 
-Build an original NostalgiaBox guide inspired by familiar classic guide behaviour, with programme information, current-time navigation and reminders.
+## Phase 6 — Basic Mode hardening and first usable release
 
-**Exit:** users can discover and tune programmes entirely by remote.
+Add service supervision, backup and restore, repeatable installation, update preparation, diagnostics and long-duration testing.
 
-## Phase 7 — Administration web interface
+**Exit:** Basic Mode is stable, documented and suitable for regular household use.
 
-Provide setup, media management, channel editing, schedule preview, settings, diagnostics, backup and maintenance through a protected local web interface.
+## Phase 7 — Enhanced Guide Mode foundation
 
-**Exit:** routine administration no longer requires direct Linux access.
+Extend the proven core with direct number entry, richer channel selection, now/next browsing, programme-detail views and theme architecture.
 
-## Phase 8 — Reliability, installation and updates
+**Exit:** richer navigation works without disrupting Basic Mode.
 
-Add supervision, migrations, backup/restore, repeatable provisioning, upgrades, rollback, health reporting and long-duration testing.
+## Phase 8 — Full electronic programme guide and reminders
 
-**Exit:** a clean reference machine can be converted and maintained using documented procedures.
+Build an original NostalgiaBox guide inspired by familiar classic set-top-box behaviour, including timeline navigation, programme discovery and reminders.
 
-## Phase 9 — Enclosure and physical integration
+**Exit:** users can browse future schedules and tune programmes entirely by remote.
+
+## Phase 9 — Advanced channels and presentation
+
+Add advanced scheduling rules, channel templates, seasonal activation, richer idents, selectable guide themes and other optional channel features.
+
+**Exit:** advanced features remain optional and the simple Basic Mode experience stays intact.
+
+## Phase 10 — Enclosure and physical integration
 
 Measure and model the hardware, preserve Dell cooling, create a serviceable custom enclosure and document manufacture and assembly.
 
 **Exit:** the physical appliance is safe, reproducible and thermally validated.
 
-## Phase 10 — Optional continuity and future enhancements
+## Phase 11 — Optional continuity and future enhancements
 
-After the core platform is stable, consider adverts, advanced idents, seasonal themes, additional guide themes, rewind, channel packs, profiles and a physical channel display.
+After the core and Enhanced Guide Mode are stable, consider adverts, promotions, rewind, profiles, community channel packs, additional integrations and a physical channel display.
 
-Adverts are explicitly deferred and do not block version 1.0.
+Adverts remain explicitly deferred and do not block Basic Mode or the first release.
 
-## Version 1.0 outcome
+## Basic Mode release outcome
 
-A user can add their own media, create real-time scheduled channels, watch and navigate by remote, use an original programme guide, pause playback, administer the device through a web UI, restart without seeing Linux and recover from routine failures using documented appliance procedures.
+A user can add their own local or network media through the web UI, create simple real-time channels, switch between them by remote, pause playback, view a compact channel-information overlay, restart without seeing Linux and recover from routine failures.
+
+## Enhanced Guide Mode release outcome
+
+A user can optionally enable a richer set-top-box experience with channel selection, a full original programme guide, reminders, programme discovery and advanced channel features, while retaining the same core engine and administration web UI.
