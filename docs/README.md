@@ -4,7 +4,7 @@ This directory is the project's source of truth for requirements, architecture, 
 
 ## Documentation map
 
-- [`01_Project/`](01_Project/) — vision, scope, requirements and risks
+- [`01_Project/`](01_Project/) — vision, scope, product requirements, delivery plan and risks
 - [`02_Architecture/`](02_Architecture/) — system context, components, data flow and deployment
 - [`03_Hardware/`](03_Hardware/) — target computer, inspection, measurements and peripherals
 - [`04_Software/`](04_Software/) — operating system, application stack and service design
@@ -17,6 +17,12 @@ This directory is the project's source of truth for requirements, architecture, 
 - [`11_Release/`](11_Release/) — installation, upgrades, backup and release process
 - [`ADR/`](ADR/) — Architecture Decision Records
 
+## Key project documents
+
+- [`01_Project/PRODUCT_REQUIREMENTS.md`](01_Project/PRODUCT_REQUIREMENTS.md) — agreed product behaviour and version-one scope
+- [`01_Project/DETAILED_DELIVERY_PLAN.md`](01_Project/DETAILED_DELIVERY_PLAN.md) — phased tasks, tests, outputs and exit criteria
+- [`../ROADMAP.md`](../ROADMAP.md) — concise delivery sequence
+
 ## Documentation rules
 
 1. Requirements describe behaviour rather than implementation wherever possible.
@@ -24,3 +30,4 @@ This directory is the project's source of truth for requirements, architecture, 
 3. Unknowns are marked `TBD`; assumptions must not be presented as confirmed facts.
 4. Code changes should trace back to a requirement, issue or ADR.
 5. Documentation should be updated in the same pull request as the behaviour it describes.
+6. A phase is complete only when its acceptance criteria and documentation are complete.
