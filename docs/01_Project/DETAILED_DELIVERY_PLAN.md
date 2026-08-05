@@ -2,7 +2,16 @@
 
 This plan turns the product vision into controlled delivery phases. Each phase defines its purpose, dependencies, work packages, documentation outputs, validation activities and exit criteria.
 
-No phase is considered complete because code exists. It is complete only when its acceptance criteria are demonstrated and its documentation is updated.
+No phase is complete merely because code exists. A phase is complete only when its acceptance criteria are demonstrated and its documentation is updated.
+
+## Delivery strategy
+
+NostalgiaBox will be built in two layers:
+
+- **Basic Mode** is the first complete product. It prioritises the simple experience demonstrated by the original YouTube inspiration: boot into playback, change continuously running channels, show a compact information overlay and manage the appliance through a web interface.
+- **Enhanced Guide Mode** is a later optional layer. It adds a richer set-top-box experience such as channel-selection screens, a full guide, reminders and advanced channel features.
+
+Both modes share one catalogue, one real-time channel engine, one playback coordinator, one database and one administration web interface. Enhanced Guide Mode must extend the proven core rather than fork it.
 
 ---
 
@@ -10,52 +19,38 @@ No phase is considered complete because code exists. It is complete only when it
 
 ### Purpose
 
-Create a single source of truth before implementation begins.
+Create a single source of truth and prevent advanced features from delaying a usable core product.
 
 ### Work packages
 
-1. **Product definition**
-   - Confirm the one-sentence product statement.
-   - Record intended users and emotional goals.
-   - Define version-one scope and explicit non-goals.
-   - Record the principle that the product must feel like a television rather than a computer.
-
-2. **Repository governance**
-   - Establish repository folders and naming conventions.
-   - Define branch and pull-request workflow.
-   - Add issue and pull-request templates.
-   - Add contribution, security and licensing decisions before public release.
-
-3. **Requirements management**
-   - Maintain the product requirements document.
-   - Assign requirement identifiers when implementation begins.
-   - Link implementation issues and tests back to requirements.
-
-4. **Risk management**
-   - Maintain technical, legal, usability and hardware risks.
-   - Record mitigations and owners.
+1. Confirm the product statement, audience and emotional goals.
+2. Define Basic Mode and Enhanced Guide Mode boundaries.
+3. Record explicit non-goals for the first release.
+4. Establish repository, branch, review and documentation rules.
+5. Maintain risks, ADRs and open decisions.
+6. Ensure every future implementation task traces to a requirement and acceptance test.
 
 ### Documentation outputs
 
 - Product requirements
-- Vision and scope
 - Roadmap
 - Detailed delivery plan
-- Architecture decision records
-- Initial risk register
+- Architecture Decision Records
+- Risk register
+- Documentation index
 
 ### Validation
 
-- Review all documents for contradictions.
-- Confirm that adverts and rewind are not blocking version-one work.
-- Confirm that the core channel behaviour is real-time.
+- Check all documents for conflicting scope.
+- Confirm that a full EPG, reminders, advanced channel selection and adverts are not Basic Mode blockers.
+- Confirm that the administration web UI remains part of the early core.
 
 ### Exit criteria
 
-- The product direction is approved.
-- Version-one boundaries are clear.
-- All major unresolved technical choices are listed.
-- Implementation work can be traced to documented goals.
+- Basic Mode scope is approved.
+- Enhanced Guide Mode is clearly separated but architecturally supported.
+- Major unknowns are documented.
+- Implementation can begin without relying on undocumented assumptions.
 
 ---
 
@@ -63,667 +58,577 @@ Create a single source of truth before implementation begins.
 
 ### Purpose
 
-Turn the Dell OptiPlex 7050 Micro into a reliable, measurable development platform.
-
-### Dependencies
-
-- Delivered hardware
-- Compatible power supply
-- Display and audio equipment
-- Keyboard for setup
-- Representative test media
+Turn the Dell OptiPlex 7050 Micro into a reliable development and deployment platform.
 
 ### Work packages
 
-1. **Physical inspection**
-   - Record model, CPU, RAM, storage and firmware revision.
-   - Photograph motherboard, cooling, connectors and chassis.
-   - Confirm that the additional RAM is compatible.
-   - Inspect fan, heatsink, thermal condition and cables.
-
-2. **Hardware diagnostics**
-   - Run memory tests.
-   - Check SSD health and capacity.
-   - Stress-test CPU and video playback.
-   - Verify HDMI/DisplayPort audio, USB, Ethernet and Wi-Fi where fitted.
-   - Measure idle and playback temperatures.
-
-3. **Operating-system investigation**
-   - Compare suitable lightweight Linux bases.
-   - Test boot time, driver support, hardware decoding and recovery behaviour.
-   - Decide whether a minimal distribution, immutable image or conventional installation best supports the appliance goal.
-
-4. **Appliance startup and shutdown**
-   - Configure automatic application startup.
-   - Remove visible login and desktop surfaces.
-   - Define safe power-button behaviour.
-   - Define restart after power loss.
-   - Create a maintenance escape route for administrators.
-
-5. **Baseline performance**
-   - Test common 720p, 1080p and selected 4K files.
-   - Test H.264, H.265/HEVC and common audio formats.
-   - Record unsupported or unreliable formats.
+1. Record CPU, RAM, storage, firmware, ports and network hardware.
+2. Fit and test the additional memory.
+3. Check SSD health, fan, heatsink, temperatures and power supply.
+4. Test display output, audio, USB, Ethernet and Wi-Fi where fitted.
+5. Compare suitable lightweight Linux bases.
+6. Test hardware-accelerated H.264 and H.265 playback.
+7. Configure automatic startup, hidden Linux surfaces and safe shutdown.
+8. Define administrator maintenance access that is invisible during normal use.
+9. Record cold-boot, reboot and recovery timings.
 
 ### Documentation outputs
 
-- Hardware inventory
-- Validation results
-- Thermal and power observations
-- Base-OS comparison
+- Delivered hardware inventory
+- Diagnostic results
+- Thermal and playback observations
+- Base operating-system comparison
 - Repeatable installation notes
 - Known hardware limitations
 
 ### Tests
 
+- Memory test
+- SSD health test
+- 720p and 1080p playback
+- Representative 4K playback for capability information
 - Cold boot and warm reboot
-- 30-minute and multi-hour playback
-- Power-loss recovery
+- Multi-hour playback
 - Audio after reboot
-- Remote/keyboard detection
 - Network reconnection
+- Power-loss recovery
 
 ### Exit criteria
 
 - Hardware passes diagnostics.
-- The operating-system direction is approved through an ADR.
+- Base OS is selected through an ADR.
 - Full-screen playback is stable.
-- The application can start without exposing Linux.
-- A clean installation can be repeated from documentation.
+- Linux can be hidden during normal startup.
+- Installation can be repeated from documentation.
 
 ---
 
-## Phase 2 — Core architecture and technical proof of concept
+## Phase 2 — Core architecture and one-channel proof
 
 ### Purpose
 
-Prove the hardest product assumption: a channel can behave like a continuous real-time television broadcast.
+Prove the hardest assumption before building product features: a channel can run continuously against real time and tune at the correct offset.
 
 ### Work packages
 
-1. **System architecture**
-   - Define boundaries between TV UI, web UI, application service, scheduler, catalogue, database and playback engine.
-   - Define local APIs and event flow.
-   - Decide process supervision and failure recovery.
-
-2. **Technology selection**
-   - Select playback engine.
-   - Select backend language/framework.
-   - Select TV frontend technology.
-   - Select web frontend technology.
-   - Select database.
-   - Record each major decision in an ADR.
-
-3. **Minimal media model**
-   - Define media item, episode, movie, channel, schedule entry and playback session.
-   - Create a tiny seeded test catalogue using legal test media.
-
-4. **Real-time channel calculation**
-   - Define a deterministic channel timeline.
-   - Calculate the programme active at the current time.
-   - Calculate the exact seek position within that programme.
-   - Handle gaps, overlaps and invalid entries.
-
-5. **Playback proof**
-   - Display one channel full screen.
-   - Tune into the correct real-time offset.
-   - Restart the application and return to the correct live position.
-   - Change away and back without restarting the programme.
-
-6. **Basic input**
-   - Support keyboard commands for channel change, guide placeholder, pause and back.
-   - Capture USB remote key events for investigation.
+1. Define boundaries between backend service, TV UI, web UI, catalogue, scheduler, database and playback engine.
+2. Select backend, frontend, database and playback technologies.
+3. Define the minimum domain model: media item, channel, timeline entry and playback session.
+4. Seed legal test media.
+5. Build one deterministic channel timeline.
+6. Resolve the current programme from system time.
+7. Calculate the exact seek position.
+8. Start playback full screen at that offset.
+9. Restart and return to the correct current position.
+10. Capture keyboard and USB-remote input for basic commands.
 
 ### Documentation outputs
 
-- System context and container diagrams
-- API boundary notes
+- System context and component diagrams
 - Initial domain model
 - Real-time timeline algorithm
 - Technology ADRs
+- Process-supervision approach
 - Proof-of-concept test report
 
 ### Tests
 
-- Tune before, during and after a programme boundary.
-- Restart at different offsets.
-- Test files with different durations.
+- Tune before, during and after programme boundaries.
+- Restart at multiple offsets.
+- Test different file durations.
 - Test missing and corrupt files.
-- Verify clock and timezone handling.
-- Verify daylight-saving transition strategy.
+- Test timezone and daylight-saving assumptions.
+- Test playback-process failure.
 
 ### Exit criteria
 
 - One real-time channel works deterministically.
 - Playback begins at the correct position.
-- Restart and retune behaviour is proven.
-- Chosen technologies satisfy the hardware and appliance constraints.
-- No core assumption remains untested.
+- Restart behaviour is correct.
+- Selected technologies work on the reference hardware.
+- No core real-time assumption remains unproven.
 
 ---
 
-## Phase 3 — Media library and catalogue
+## Phase 3 — Basic media catalogue and administration web UI
 
 ### Purpose
 
-Create a reliable internal catalogue independent of Plex or Jellyfin.
+Make media manageable without exposing Linux or requiring Plex or Jellyfin.
 
 ### Work packages
 
-1. **Source management**
-   - Add internal-folder sources.
-   - Add removable USB sources.
-   - Add SMB/NAS sources.
-   - Store credentials securely.
-   - Detect unavailable and reconnected sources.
+#### 3.1 Catalogue foundation
 
-2. **Scanning**
-   - Discover supported files.
-   - Extract technical metadata and duration.
-   - Avoid duplicate catalogue entries.
-   - Detect additions, changes and removals.
-   - Support full and incremental scans.
+- Add internal-folder media sources.
+- Add SMB/NAS sources.
+- Discover supported files.
+- Extract duration and technical metadata.
+- Detect additions, changes, removals and duplicates.
+- Support full and incremental scans.
+- Preserve stable catalogue identifiers.
 
-3. **Organisation and matching**
-   - Identify movies, series, seasons and episodes.
-   - Permit manual corrections through the web UI.
-   - Preserve user edits across rescans.
+#### 3.2 Basic matching
 
-4. **Metadata and artwork**
-   - Define metadata-provider abstraction.
-   - Cache artwork locally.
-   - Provide fallback artwork and titles.
-   - Respect provider licences and rate limits.
+- Identify movies, series, seasons and episodes where possible.
+- Provide sensible fallback titles.
+- Allow manual corrections.
+- Preserve manual corrections across rescans.
+- Cache basic artwork without making artwork a playback dependency.
 
-5. **External integrations**
-   - Design Plex and Jellyfin adapters after local/SMB sources are stable.
-   - Map external identifiers to the internal catalogue.
-   - Do not make either service mandatory.
+#### 3.3 Web UI foundation
 
-6. **Storage management**
-   - Show free space and source health.
-   - Define cache limits and cleanup.
-   - Exclude user media and credentials from Git.
+- Provide first-run setup.
+- Add, edit, test and remove media sources.
+- Start scans and show progress.
+- Show source availability and scan errors.
+- Review and correct media matches.
+- Show storage and appliance health.
+
+#### 3.4 Security and resilience
+
+- Restrict administration to the local network by default.
+- Add setup authentication or a setup token.
+- Store network credentials securely.
+- Prevent user media, secrets and databases from entering Git.
+- Recover cleanly from interrupted scans and unavailable shares.
+
+#### Deferred from this phase
+
+- Plex and Jellyfin adapters
+- Advanced metadata providers
+- USB hot-plug polish
+- Advanced artwork management
 
 ### Documentation outputs
 
-- Media-source model
-- Supported formats
-- Naming and matching rules
-- Scan lifecycle
-- Credential-storage design
-- Metadata-provider design
+- Catalogue schema
+- Source lifecycle
+- Supported-format policy
+- Scan and rescan behaviour
+- Matching and correction rules
+- Web UI sitemap for catalogue functions
+- Authentication and credential-storage design
 
 ### Tests
 
 - Add, remove, rename and replace files.
-- Disconnect a NAS during scanning and playback.
-- Reconnect removable storage.
-- Scan duplicate files and duplicate names.
-- Process large libraries without blocking playback.
+- Disconnect and reconnect a NAS.
+- Interrupt and resume a scan.
+- Scan duplicate names and files.
 - Preserve manual corrections.
+- Scan while playback continues.
+- Complete setup from desktop and phone browsers.
 
 ### Exit criteria
 
-- Local and SMB media can be catalogued reliably.
-- Scans are repeatable and recover from interruption.
-- Users can correct metadata through the web interface.
-- Playback references catalogue identifiers rather than raw UI-selected paths.
+- Local and SMB/NAS media can be catalogued reliably.
+- Users can manage and correct the catalogue through the web UI.
+- Playback refers to catalogue IDs, not UI-selected raw paths.
+- Routine media setup requires no Linux access.
 
 ---
 
-## Phase 4 — Channel engine and scheduling
+## Phase 4 — Basic real-time channel engine
 
 ### Purpose
 
-Generate stable, editable, real-time television channels from catalogue content.
+Create multiple continuously running channels with the minimum scheduling complexity needed for Basic Mode.
 
 ### Work packages
 
-1. **Channel definitions**
-   - Number, name, logo, enabled state and ordering.
-   - Startup and seasonal activation settings.
-   - Content pools and scheduling rules.
+#### 4.1 Basic channel model
 
-2. **Scheduling model**
-   - Define programmes, blocks, rules and exclusions.
-   - Support sequential episodes and shuffled pools.
-   - Avoid immediate repetition.
-   - Support day-of-week and time-of-day rules.
-   - Define filler behaviour when no normal item fits.
+- Channel number
+- Channel name
+- Enabled state
+- Display order
+- Optional logo
+- Content pool
+- Playback order: sequential or shuffled
 
-3. **Timeline generation**
-   - Generate schedules ahead for an agreed horizon.
-   - Keep already published schedule entries stable.
-   - Extend the future timeline without rewriting history.
-   - Store provenance explaining why each item was selected.
+#### 4.2 Timeline generation
 
-4. **Real-time resolution**
-   - Resolve current and next entries efficiently.
-   - Calculate seek offsets.
-   - Handle clock changes and timezone configuration.
+- Generate a deterministic timeline from media durations.
+- Extend the timeline safely into the future.
+- Keep previously published timeline entries stable.
+- Resolve current and next entries efficiently.
+- Calculate exact real-time seek offsets.
 
-5. **Channel editing through web UI**
-   - Create from a template.
-   - Edit and preview rules.
-   - Reorder and renumber.
-   - Enable, disable and schedule seasonal visibility.
-   - Warn about empty or invalid channels.
+#### 4.3 Basic channel web management
 
-6. **Recovery and consistency**
-   - Handle removed media already present in a schedule.
-   - Rebuild future schedules safely.
-   - Protect against duplicate or overlapping entries.
+- Create a channel.
+- Edit number, name and content pool.
+- Choose sequential or shuffled playback.
+- Reorder, enable, disable and delete channels.
+- Preview current and upcoming items in a simple list.
+- Warn clearly about empty or invalid channels.
+
+#### 4.4 Failure behaviour
+
+- Skip missing or unreadable media.
+- Avoid overlapping entries.
+- Repair future timelines after content changes.
+- Provide a fallback screen when a channel cannot play.
+- Record understandable diagnostic information in the web UI.
+
+#### Deferred to Enhanced Guide Mode or later
+
+- Complex time-of-day rules
+- Day-of-week rules
+- Seasonal activation
+- Detailed programme-grid editing
+- Advanced channel templates
+- Idents and adverts
 
 ### Documentation outputs
 
-- Channel schema
-- Scheduling-rule specification
-- Timeline generation algorithm
-- Determinism and randomisation policy
-- Seasonal activation design
-- Schedule repair procedures
+- Basic channel schema
+- Sequential and shuffled selection rules
+- Timeline stability policy
+- Schedule-repair procedure
+- Channel web UI specification
+- Error and fallback behaviour
 
 ### Tests
 
-- Generate multiple days for multiple channels.
-- Re-run generation and confirm protected entries do not change.
-- Test empty content pools.
-- Test programmes crossing midnight.
-- Test seasonal channel activation.
-- Remove scheduled media and verify fallback.
-- Test daylight-saving transitions.
+- Multiple channels over multiple days.
+- Restart and confirm timeline stability.
+- Empty content pool.
+- Media removal after scheduling.
+- Programmes crossing midnight.
+- Daylight-saving transition strategy.
+- Rapid channel edits while playback continues.
 
 ### Exit criteria
 
-- Users can create and edit multiple channels.
-- Each channel produces a valid future timeline.
-- Current/next resolution is reliable.
-- Schedules remain stable where promised.
-- Invalid rules are visible and recoverable.
+- Multiple Basic Mode channels run continuously.
+- Every valid channel resolves current and next content.
+- Channel configuration is possible through the web UI.
+- Invalid channels fail safely and visibly.
 
 ---
 
-## Phase 5 — Playback coordination and television interface
+## Phase 5 — Basic Mode television experience
 
 ### Purpose
 
-Deliver the core sofa experience without requiring a keyboard or mouse.
+Deliver the first complete sofa experience, matching the simplicity of the original inspiration without requiring a full guide.
 
 ### Work packages
 
-1. **Playback coordinator**
-   - Tune to a channel and correct offset.
-   - Change channels cleanly.
-   - Pause and resume.
-   - Select audio and subtitles.
-   - Recover from playback-process failure.
-   - Fall back when media is unavailable.
+#### 5.1 Startup flow
 
-2. **Startup flow**
-   - Show NostalgiaBox logo.
-   - Apply optional CRT static.
-   - Show channel ident when configured.
-   - Display channel-information banner.
-   - Start Channel 001 by default or the saved channel when configured.
+- Hide Linux completely.
+- Show the NostalgiaBox logo.
+- Apply optional CRT static.
+- Optionally play a configured ident later without making it mandatory.
+- Start Channel 001 by default.
+- Support an administrator option to resume the last channel.
 
-3. **Channel banner**
-   - Channel number and name.
-   - Current programme.
-   - Start/end or remaining time.
-   - Progress indicator.
-   - Optional channel watermark.
+#### 5.2 Playback coordination
 
-4. **Remote navigation shell**
-   - Channel up/down.
-   - Direct number entry where available.
-   - Guide, info, back and play/pause.
-   - Focus management that never loses the selected control.
-   - Consistent key-repeat behaviour.
+- Tune to the correct real-time channel offset.
+- Change channel up and down.
+- Pause and resume.
+- Select subtitles and audio tracks.
+- Recover from player crashes.
+- Recover when a source disappears.
+- Keep the real-time schedule authoritative after returning from pause.
 
-5. **Error presentation**
-   - Friendly messages rather than technical exceptions.
-   - Automatic retry where safe.
-   - A hidden diagnostic code that can be looked up in the web UI.
+The exact pause-across-programme-boundary behaviour must be agreed and documented before implementation is considered complete.
 
-6. **Accessibility and child usability**
-   - Readable text at television distance.
-   - Large focus targets.
-   - Minimal required steps.
-   - No destructive actions without confirmation or PIN.
+#### 5.3 Compact channel-information overlay
+
+- Channel number
+- Channel name
+- Current programme title
+- Remaining time or start/end time
+- Optional progress bar
+- Optional channel logo
+- Automatic dismissal after a configurable short period
+- Manual display through the information button
+
+#### 5.4 Remote input
+
+- Channel up/down
+- Information
+- Play/pause
+- OK/select where required
+- Back
+- Keyboard equivalents for development
+- Consistent key-repeat and debounce handling
+
+#### 5.5 Basic on-TV settings
+
+- View device/network status.
+- Toggle CRT transition.
+- Change subtitle or audio preferences.
+- Access PIN-protected maintenance actions where appropriate.
+- Keep advanced setup in the web UI.
+
+#### 5.6 User-friendly errors
+
+- Never show stack traces or terminal output.
+- Retry automatically where safe.
+- Show a simple message and fallback presentation.
+- Provide a diagnostic code visible in the web UI.
 
 ### Documentation outputs
 
-- TV navigation map
-- Remote key map
-- Startup-state machine
-- Playback-state machine
+- Startup state machine
+- Playback state machine
+- Remote map
+- Channel-overlay specification
+- Pause behaviour decision
 - Error and fallback catalogue
-- UI spacing and readability rules
+- Television readability and overscan rules
 
 ### Tests
 
-- Operate all core functions using only the target remote.
-- Test rapid channel changes.
-- Pause across a programme boundary and define expected behaviour.
-- Recover from decoder crash.
-- Test subtitle and audio selection.
-- Test overscan and common 1080p television layouts.
+- Complete viewing session using only the target remote.
+- Rapid channel changes.
+- Pause and resume near programme boundaries.
+- Player crash and automatic recovery.
+- Network-source loss and return.
+- Subtitle and audio selection.
+- Cold boot directly into playback.
+- Common 1080p display and overscan configurations.
 
 ### Exit criteria
 
-- A normal viewing session requires only the remote.
-- Linux is not visible.
-- Channel switching and pause are reliable.
-- Failures produce user-friendly recovery behaviour.
+- NostalgiaBox boots into a working channel without exposing Linux.
+- A user can channel-surf, pause and view programme information using only the remote.
+- The experience works without a full guide.
+- Failures are understandable and recoverable.
 
 ---
 
-## Phase 6 — Electronic programme guide and reminders
+## Phase 6 — Basic Mode hardening and first release
 
 ### Purpose
 
-Provide a familiar but original programme-discovery experience.
+Turn the working Basic Mode into a dependable household appliance.
 
 ### Work packages
 
-1. **NostalgiaBox visual language**
-   - Define typography, spacing, motion, colours and focus states.
-   - Take inspiration from classic guides without copying protected branding or layouts.
+1. Supervise and restart failed services.
+2. Add structured logs and health checks.
+3. Create backup and restore for settings, catalogue and channel configuration.
+4. Define database migrations.
+5. Build repeatable provisioning from a clean machine.
+6. Add first-run setup and version reporting.
+7. Prepare verified update packages and rollback behaviour.
+8. Produce an exportable support bundle with secrets removed.
+9. Run multi-day playback and schedule-extension tests.
+10. Complete user, administrator and recovery documentation.
 
-2. **Guide grid**
-   - Channel column.
-   - Time axis.
-   - Current-time marker.
-   - Programme cells sized by duration.
-   - Smooth horizontal and vertical navigation.
+### Documentation outputs
 
-3. **Programme information**
-   - Title, synopsis, episode data, timing and artwork.
-   - Now/next information.
+- Installation guide
+- First-run guide
+- Basic Mode user guide
+- Administration guide
+- Backup and restore guide
+- Upgrade and rollback guide
+- Support and diagnostics guide
+- Basic Mode release checklist
 
-4. **Reminders**
-   - Set and cancel reminders.
-   - Display notification before a programme begins.
-   - Offer one-action tuning.
-   - Define behaviour while playback is paused or settings are open.
+### Tests
 
-5. **Theme architecture**
-   - Keep presentation tokens separate from guide logic.
-   - Prepare for future selectable guide themes.
+- Multi-day continuous playback.
+- Repeated cold boots and restarts.
+- Network interruptions.
+- Interrupted scans and database writes.
+- Backup and restore to a clean installation.
+- Failed update and rollback.
+- Low disk space.
+- Corrupt or missing media.
 
-6. **Performance**
-   - Load only the visible schedule window.
-   - Cache images.
-   - Maintain remote responsiveness while the schedule updates.
+### Exit criteria
+
+- A clean reference machine can be converted using documented steps.
+- Basic Mode survives routine failures without technical intervention.
+- Configuration can be backed up and restored.
+- The first usable release can be tagged without depending on Enhanced Guide Mode.
+
+---
+
+## Phase 7 — Enhanced Guide Mode foundation
+
+### Purpose
+
+Add richer navigation to the stable Basic Mode core without changing its underlying behaviour.
+
+### Work packages
+
+1. Define the final public name for the enhanced experience.
+2. Add a mode preference while preserving Basic Mode.
+3. Design an original NostalgiaBox visual language.
+4. Add direct number entry where supported.
+5. Build a richer channel-selection screen.
+6. Add now/next browsing.
+7. Add programme-detail panels.
+8. Separate theme tokens from navigation and schedule logic.
+9. Confirm all enhanced screens remain fully remote-controlled.
+
+### Documentation outputs
+
+- Enhanced mode naming decision
+- Navigation map
+- Visual-language specification
+- Channel-selection specification
+- Programme-detail specification
+- Theme architecture
+
+### Tests
+
+- Switch between Basic and Enhanced modes.
+- Confirm both use the same channel state and schedules.
+- Navigate using remotes with and without number buttons.
+- Test many and few channels.
+- Test missing artwork and descriptions.
+
+### Exit criteria
+
+- Enhanced navigation works on top of the existing core.
+- Basic Mode remains intact and selectable.
+- No catalogue, scheduler or playback logic is duplicated.
+
+---
+
+## Phase 8 — Full programme guide and reminders
+
+### Purpose
+
+Deliver the optional original set-top-box-style guide after the core product is already usable.
+
+### Work packages
+
+1. Time-based guide grid.
+2. Channel column and logos.
+3. Current-time marker.
+4. Programme cells sized by duration.
+5. Smooth horizontal and vertical navigation.
+6. Programme synopsis, episode data and artwork.
+7. Set, cancel and trigger reminders.
+8. One-action tuning from reminders.
+9. Visible-window loading and artwork caching.
+10. Selectable guide themes where maintainable.
 
 ### Documentation outputs
 
 - EPG interaction specification
 - Originality and brand-separation notes
 - Reminder lifecycle
-- Theme-token specification
 - Performance budgets
+- Theme specifications
 
 ### Tests
 
-- Guides with few and many channels.
-- Short and multi-hour programmes.
-- Programmes spanning the visible window.
-- Rapid navigation.
-- Missing metadata and artwork.
-- Reminder timing around sleep/restart.
+- Few and many channels.
+- Very short and very long programmes.
+- Rapid timeline navigation.
+- Missing metadata.
+- Reminder behaviour across restart and sleep states.
+- Guide responsiveness while scans or playback continue.
 
 ### Exit criteria
 
-- The guide is usable entirely by remote.
-- Current and upcoming schedules are accurate.
+- Future schedules can be browsed entirely by remote.
 - Reminder behaviour is dependable.
-- The design is recognisably NostalgiaBox rather than a copy of another service.
+- The design is recognisably NostalgiaBox and not a copy of another service.
 
 ---
 
-## Phase 7 — Administration web interface
+## Phase 9 — Advanced channels and presentation
 
 ### Purpose
 
-Move complex management away from the television while keeping it accessible on the local network.
-
-### Work packages
-
-1. **Setup and status dashboard**
-   - Device status, version, storage, sources and channel health.
-   - First-run setup workflow.
-
-2. **Media management**
-   - Add and test sources.
-   - Start and monitor scans.
-   - Correct matches and artwork.
-
-3. **Channel management**
-   - Create from templates.
-   - Edit content pools and schedule rules.
-   - Preview schedule output.
-   - Manage logos, colours, idents and activation windows.
-
-4. **System settings**
-   - Startup channel behaviour.
-   - CRT effect toggle.
-   - Timezone, language and display settings.
-   - Remote mapping.
-   - PIN management.
-
-5. **Diagnostics and maintenance**
-   - Health status and logs.
-   - Backup and restore.
-   - Restart services or device.
-   - Safe update workflow.
-
-6. **Security**
-   - Local authentication or setup token.
-   - CSRF and session protection.
-   - Secure credential storage.
-   - Restrict access to the local network by default.
-
-### Documentation outputs
-
-- Web UI sitemap
-- API contract
-- Authentication model
-- Backup contents and restore process
-- First-run setup specification
-
-### Tests
-
-- Complete setup from a phone and desktop browser.
-- Invalid credentials and inaccessible shares.
-- Concurrent TV playback and library scans.
-- Backup and restore to a clean installation.
-- PIN-protected settings.
-
-### Exit criteria
-
-- All advanced version-one configuration is possible through the web UI.
-- Routine administration does not require Linux access.
-- Security controls are documented and tested.
-
----
-
-## Phase 8 — Reliability, installation and updates
-
-### Purpose
-
-Convert a working prototype into a maintainable appliance.
-
-### Work packages
-
-1. **Service supervision**
-   - Automatic restart of failed components.
-   - Health checks and dependency ordering.
-   - Controlled degraded modes.
-
-2. **Data protection**
-   - Database migrations.
-   - Automatic backups before upgrades.
-   - Restore verification.
-   - Recovery from interrupted writes.
-
-3. **Installation**
-   - Repeatable provisioning from a clean machine.
-   - Hardware checks.
-   - Initial configuration wizard.
-   - Version reporting.
-
-4. **Updates**
-   - Signed or verified release packages.
-   - Staged upgrade process.
-   - Rollback strategy.
-   - Clear compatibility and migration notes.
-
-5. **Observability**
-   - Structured logs.
-   - User-friendly health status.
-   - Exportable support bundle with secrets removed.
-
-6. **Long-duration validation**
-   - Multi-day playback.
-   - Schedule extension.
-   - Network interruptions.
-   - Repeated suspend/restart/power cycles if supported.
-
-### Documentation outputs
-
-- Installation guide
-- Upgrade and rollback guide
-- Backup and restore guide
-- Troubleshooting guide
-- Release checklist
-- Support-bundle privacy specification
-
-### Exit criteria
-
-- A clean OptiPlex can be converted by following the guide.
-- Updates preserve configuration and schedules.
-- Common failures recover automatically.
-- Long-running tests meet agreed reliability thresholds.
-
----
-
-## Phase 9 — Enclosure and physical integration
-
-### Purpose
-
-Create the final physical appliance without compromising serviceability or cooling.
-
-### Work packages
-
-1. **Measurement and reference model**
-   - Record motherboard outline, mounting holes and component heights.
-   - Record rear I/O and power-button geometry.
-   - Record fan intake and exhaust requirements.
-
-2. **Mechanical architecture**
-   - Separate motherboard tray, outer shell, front panel and cover.
-   - Preserve access to RAM, storage and cooling.
-   - Provide strain relief and stable rear I/O support.
-
-3. **Thermal design**
-   - Preserve the Dell airflow path.
-   - Avoid recirculation.
-   - Validate printed-material temperature limits.
-   - Compare temperatures against the original chassis.
-
-4. **Front panel**
-   - Define physical power and navigation controls.
-   - Decide whether a channel display is version one or future.
-   - Hide or integrate modern ports appropriately.
-
-5. **Prototype iterations**
-   - Fit-check print.
-   - Functional prototype.
-   - Thermal prototype.
-   - Final cosmetic revision.
-
-6. **Manufacturing documentation**
-   - Source CAD and neutral STEP files.
-   - Printable STL/3MF files.
-   - Print orientation and settings.
-   - Fastener and assembly list.
-
-### Documentation outputs
-
-- Dimensioned hardware model
-- Thermal requirements
-- Mechanical design decisions
-- Bill of materials
-- Print and assembly guide
-- Revision history
-
-### Tests
-
-- Fit and connector alignment.
-- Cable strain and service access.
-- Multi-hour thermal test.
-- Button endurance.
-- Drop/handling assessment appropriate to a home appliance.
-
-### Exit criteria
-
-- The enclosure is safe, serviceable and thermally acceptable.
-- Assembly is reproducible.
-- CAD and printing documentation match the released revision.
-
----
-
-## Phase 10 — Optional continuity, adverts and future enhancements
-
-### Purpose
-
-Add atmosphere only after the core experience is reliable.
+Add optional depth only after Basic Mode and the enhanced guide are stable.
 
 ### Candidate work packages
 
-- Channel idents and bumpers
-- “Coming up next” clips
-- Channel- and season-specific adverts
-- Seasonal guide themes and channels
-- Additional programme-guide themes
-- Rewind/time-shift buffer
-- Plex and Jellyfin enhancements
-- Channel-pack import/export
-- Multiple household profiles
-- Physical channel-number display
+- Time-of-day and day-of-week scheduling rules
+- Seasonal and event channel activation
+- Richer starter templates
+- Channel themes and colour treatments
+- Ident collections
+- Schedule preview and conflict explanation
+- Favourite channels
+- Additional source adapters such as Plex and Jellyfin
+- Improved USB storage handling
 
-Each candidate requires a separate design and prioritisation exercise. None may weaken startup speed, channel reliability or ease of use.
+Each feature requires its own requirements, risk review and acceptance criteria before implementation.
 
 ### Exit criteria
 
-Defined separately for each approved feature. Optional features do not block version 1.0 unless explicitly promoted into scope through an updated product decision.
+- Advanced features are optional.
+- Basic Mode remains simple.
+- Existing schedules and channel configurations remain compatible.
 
 ---
 
-## Cross-phase controls
+## Phase 10 — Enclosure and physical integration
+
+### Purpose
+
+Create the physical NostalgiaBox appliance around the validated electronics.
+
+### Work packages
+
+1. Measure motherboard, mounting holes, cooling assembly and ports.
+2. Preserve blower intake and exhaust paths.
+3. Design a removable motherboard tray.
+4. Design bottom shell, front fascia and serviceable top cover.
+5. Mount SSD and antennas safely.
+6. Prototype front buttons and optional display.
+7. Validate cable access, assembly order and maintenance.
+8. Perform thermal and long-duration playback tests in the new enclosure.
+9. Produce printable files, drawings and assembly instructions.
+
+### Exit criteria
+
+- The custom case is mechanically safe and serviceable.
+- Temperatures remain within the validated operating envelope.
+- All external ports and controls function reliably.
+- The enclosure can be reproduced from documentation.
+
+---
+
+## Phase 11 — Optional continuity and future enhancements
+
+### Purpose
+
+Explore features that are not required for the core television appliance.
+
+### Candidate features
+
+- Optional channel and seasonal adverts
+- Programme promotions
+- “Coming up next” clips
+- Advanced idents and bumpers
+- Rewind or timeshift
+- Profiles and parental controls
+- Community channel packs
+- Multi-room support
+- Physical front-panel channel display
+
+Adverts remain deliberately last. No optional continuity feature may compromise playback reliability or delay core releases.
+
+---
+
+## Cross-phase implementation rules
 
 Every implementation phase must include:
 
-- an approved design or ADR for significant decisions;
-- implementation issues with acceptance criteria;
-- automated tests where practical;
-- manual appliance/remote validation;
-- migration or rollback consideration;
-- updated user and developer documentation;
-- confirmation that no copyrighted user media or secrets have entered the repository.
-
-## Definition of done for version 1.0
-
-Version 1.0 is ready only when:
-
-- real-time channels are stable;
-- local and SMB media sources work;
-- schedules can be created and edited through the web UI;
-- playback, channel changing, pause and the EPG work by remote;
-- reminders work;
-- Linux remains hidden during normal use;
-- installation, update, backup and recovery procedures are documented and tested;
-- the reference hardware passes long-duration testing;
-- the enclosure either meets release criteria or is explicitly separated as a later hardware release.
+1. Requirements review before coding.
+2. Architecture review and ADRs for major decisions.
+3. A file-level implementation plan.
+4. Automated tests where practical.
+5. Manual acceptance tests on the OptiPlex 7050.
+6. Documentation updated in the same pull request.
+7. Migration and rollback consideration for stored data.
+8. Security review for web UI, credentials and updates.
+9. Performance review for playback, remote responsiveness and boot time.
+10. A demonstration against written exit criteria before the phase is closed.
