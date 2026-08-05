@@ -1,91 +1,75 @@
 # NostalgiaBox Roadmap
 
-This roadmap describes the intended order of work. Dates are deliberately omitted until the architecture and hardware validation are complete.
+This roadmap gives the high-level delivery order. Detailed tasks, tests, documentation outputs and exit criteria are maintained in [`docs/01_Project/DETAILED_DELIVERY_PLAN.md`](docs/01_Project/DETAILED_DELIVERY_PLAN.md).
 
-## Phase 0 — Project foundation
+Dates are deliberately omitted until the architecture and hardware validation are complete.
 
-- Establish the repository and documentation structure
-- Record the product vision, scope and non-goals
-- Record the confirmed hardware platform
-- Create an initial architecture and risk register
-- Identify open technical decisions
+## Phase 0 — Product and project foundation
 
-**Exit criteria:** the project has a documented direction and no implementation begins without an agreed architecture.
+Define the product, requirements, delivery controls, risks and architecture decisions.
 
-## Phase 1 — Hardware validation and base operating system
+**Exit:** version-one scope and the implementation process are agreed.
 
-- Inspect and test the Dell OptiPlex 7050 Micro
-- Verify the additional memory module and run a memory test
-- Check SSD health, cooling, ports and power supply
-- Select and install the base operating system
-- Configure automatic startup and recovery behaviour
-- Confirm reliable 1080p playback and audio output
+## Phase 1 — Hardware validation and appliance base
 
-**Exit criteria:** the machine boots reliably, plays representative media smoothly and has a repeatable base installation procedure.
+Validate the Dell OptiPlex 7050, select the operating system, prove hardware-accelerated playback and establish hidden, reliable appliance startup.
 
-## Phase 2 — Proof of concept
+**Exit:** the hardware and base installation are repeatable and stable.
 
-- Create a minimal full-screen TV interface
-- Implement local media playback
-- Define one test channel and a simple schedule
-- Tune into a programme at its calculated current position
-- Support basic keyboard or remote directional navigation
+## Phase 2 — Core architecture and proof of concept
 
-**Exit criteria:** NostalgiaBox boots into a working test channel and behaves like a continuously broadcasting station.
+Select technologies and prove one continuously advancing real-time channel that tunes at the correct programme offset.
 
-## Phase 3 — Core platform
+**Exit:** the highest-risk product behaviour is demonstrated on the reference hardware.
 
-- Media scanner and metadata catalogue
-- Channel definitions and scheduling rules
-- Programme timeline generation
-- Playback coordination and recovery
-- Persistent settings and application state
-- Logging and diagnostics
+## Phase 3 — Media library and catalogue
 
-**Exit criteria:** multiple channels can run from reproducible schedules without manually assembled playlists.
+Support internal, USB and SMB/NAS sources, scanning, matching, metadata and manual corrections. Plex and Jellyfin follow through adapters rather than becoming required dependencies.
 
-## Phase 4 — Television experience
+**Exit:** the internal catalogue is reliable and independent of external media servers.
 
-- Channel up/down and direct number entry
-- Now/next banner
-- Electronic programme guide
-- Channel logos, idents, bumpers and advert blocks
-- Remote-control mapping
-- Settings and maintenance screens
-- Boot and channel-change presentation
+## Phase 4 — Channel engine and scheduling
 
-**Exit criteria:** the system can be used from the sofa without a keyboard or visible desktop.
+Create editable channels, scheduling rules, stable future timelines, seasonal activation and deterministic recovery behaviour.
 
-## Phase 5 — Enclosure and front panel
+**Exit:** multiple channels continuously produce valid now/next schedules.
 
-- Measure and model the OptiPlex chassis
-- Define thermal and access requirements
-- Design a retro set-top-box enclosure
-- Prototype physical buttons and front display
-- Integrate front-panel electronics without compromising cooling
-- Produce printable files and assembly documentation
+## Phase 5 — Playback coordination and television interface
 
-**Exit criteria:** the computer is installed in a safe, serviceable enclosure that looks and behaves like a dedicated appliance.
+Implement channel tuning, pause/resume, channel changes, startup sequence, channel banner, remote navigation and user-friendly recovery.
 
-## Phase 6 — Reliability and release preparation
+**Exit:** core viewing works from the sofa without exposing Linux.
 
-- Automated and manual test coverage
-- Long-running playback and schedule testing
-- Power-loss and corrupted-media recovery tests
-- Installation and upgrade process
-- Backup and restore procedure
-- User, administrator and build documentation
+## Phase 6 — Electronic programme guide and reminders
 
-**Exit criteria:** a clean machine can be converted into a working NostalgiaBox by following the documented release process.
+Build an original NostalgiaBox guide inspired by familiar classic guide behaviour, with programme information, current-time navigation and reminders.
 
-## Future possibilities
+**Exit:** users can discover and tune programmes entirely by remote.
 
-These are not commitments for version 1.0:
+## Phase 7 — Administration web interface
 
-- Seasonal and event-based channels
-- Multiple eras or regional channel packs
-- Web-based administration
-- Optional CRT and analogue-signal effects
-- Physical channel-number display
-- Multiple household profiles
-- Import and export of channel configurations
+Provide setup, media management, channel editing, schedule preview, settings, diagnostics, backup and maintenance through a protected local web interface.
+
+**Exit:** routine administration no longer requires direct Linux access.
+
+## Phase 8 — Reliability, installation and updates
+
+Add supervision, migrations, backup/restore, repeatable provisioning, upgrades, rollback, health reporting and long-duration testing.
+
+**Exit:** a clean reference machine can be converted and maintained using documented procedures.
+
+## Phase 9 — Enclosure and physical integration
+
+Measure and model the hardware, preserve Dell cooling, create a serviceable custom enclosure and document manufacture and assembly.
+
+**Exit:** the physical appliance is safe, reproducible and thermally validated.
+
+## Phase 10 — Optional continuity and future enhancements
+
+After the core platform is stable, consider adverts, advanced idents, seasonal themes, additional guide themes, rewind, channel packs, profiles and a physical channel display.
+
+Adverts are explicitly deferred and do not block version 1.0.
+
+## Version 1.0 outcome
+
+A user can add their own media, create real-time scheduled channels, watch and navigate by remote, use an original programme guide, pause playback, administer the device through a web UI, restart without seeing Linux and recover from routine failures using documented appliance procedures.
