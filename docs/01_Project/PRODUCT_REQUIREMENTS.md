@@ -30,14 +30,48 @@ The main experience goals are:
 
 Linux, desktops, terminals, mouse cursors and login screens must not appear during normal operation.
 
+## Product modes and delivery order
+
+NostalgiaBox will support two related experience layers.
+
+### Basic Mode
+
+Basic Mode is the first implementation target and the first usable release. It should closely reproduce the straightforward experience shown by the original YouTube inspiration:
+
+- turn on the appliance and enter television playback;
+- watch continuously running real-time channels;
+- change channels with a simple remote;
+- briefly display channel and programme information;
+- pause and resume playback;
+- perform administration through the local web interface.
+
+Basic Mode intentionally excludes the full programme-grid interface, advanced channel-selection screens, reminders and complex scheduling features. Its purpose is to prove and deliver the core experience quickly without creating throwaway architecture.
+
+### Enhanced Guide Mode
+
+Enhanced Guide Mode is a later optional layer built on the same catalogue, scheduler, playback engine and administration web interface. It may add:
+
+- a richer channel-selection interface;
+- direct channel-number entry;
+- now/next browsing;
+- a full electronic programme guide;
+- programme-detail screens;
+- reminders;
+- additional themes and presentation options;
+- more advanced channel and scheduling features.
+
+“Enhanced Guide Mode” is a working project name and may be changed before release. The project must not use third-party product names or branding as the public name of this feature.
+
+Basic Mode must remain available after Enhanced Guide Mode is introduced. Enhanced Guide Mode must extend shared components rather than create a separate incompatible product or duplicate core logic.
+
 ## Startup experience
 
 The intended sequence is:
 
 1. NostalgiaBox logo.
 2. Optional CRT-static transition.
-3. Channel ident.
-4. A classic channel-information banner showing channel number, channel name, current programme and remaining time.
+3. Optional channel ident where configured.
+4. A compact channel-information banner showing channel number, channel name, current programme and remaining time.
 5. Playback starts on the selected startup channel.
 
 The default startup channel is Channel 001. An administrator may instead configure the device to resume the last-viewed channel.
@@ -54,17 +88,31 @@ Changing away from a channel and returning later must rejoin its current real-ti
 
 ## Channel requirements
 
-- The number of channels is chosen by the user.
-- Starter channel templates should be provided.
-- Users can create, edit, reorder, disable and delete channels.
-- Each channel can have its own number, name, logo, colour treatment, ident collection and programme guide entries.
-- Channel logos appear as an optional corner watermark.
-- Channels may have activation windows, allowing seasonal or event channels to appear only when configured.
-- Channel numbering must support direct number entry when the connected remote provides number buttons.
+### Basic Mode requirements
+
+- The user chooses how many channels exist.
+- Starter channel templates may be provided.
+- Users can create, edit, reorder, enable, disable and delete channels through the web UI.
+- Each channel has at minimum a number, name, enabled state and content pool.
+- Each channel can optionally have a logo and corner watermark.
+- Basic scheduling may support sequential or shuffled playback from a content pool.
+- Empty or invalid channels must fail gracefully and be clearly reported in the web UI.
+
+### Enhanced Guide Mode requirements
+
+Later releases may add:
+
+- richer channel-selection screens;
+- direct number entry where the remote supports number buttons;
+- channel colours and themes;
+- ident collections;
+- advanced time-of-day and day-of-week rules;
+- seasonal and event activation windows;
+- schedule previews and programme-discovery features.
 
 ## Media sources
 
-NostalgiaBox must support media from:
+NostalgiaBox must ultimately support media from:
 
 - internal storage;
 - USB storage;
@@ -72,15 +120,15 @@ NostalgiaBox must support media from:
 - Jellyfin;
 - Plex.
 
-The first implementation should prioritise local storage and SMB/NAS. Jellyfin and Plex are integrations, not required dependencies.
+The first implementation should prioritise local storage and SMB/NAS. USB support should follow once local source handling is reliable. Jellyfin and Plex are later integrations, not required dependencies.
 
 NostalgiaBox maintains its own catalogue so that users who do not run an external media server receive the full experience.
 
-The TV interface must not expose a normal file browser. Media-source configuration and advanced organisation are handled through the administration web interface.
+The TV interface must not expose a normal file browser. Media-source configuration, scanning and advanced organisation are handled through the administration web interface.
 
 ## Playback requirements
 
-Version 1 should support:
+Basic Mode should support:
 
 - smooth full-screen playback;
 - hardware-accelerated video decoding where supported;
@@ -93,13 +141,26 @@ Version 1 should support:
 
 Rewinding live television is deferred until a later release.
 
+## Channel information overlay
+
+Basic Mode must include a compact overlay shown during startup and channel changes. It should display:
+
+- channel number;
+- channel name;
+- current programme title;
+- remaining time or start/end time;
+- optional progress indicator;
+- optional channel logo.
+
+The overlay must disappear automatically and must not require a programme guide to function.
+
 ## Programme guide
 
-The initial guide should feel familiar to users of classic Sky-style guides without copying Sky branding, artwork or layouts directly.
+A full programme guide is not required for the first Basic Mode release.
 
-NostalgiaBox will have its own visual identity and may later provide selectable guide themes.
+Enhanced Guide Mode should introduce an original NostalgiaBox guide that feels familiar to users of classic set-top-box guides without copying third-party branding, artwork or layouts directly.
 
-Version 1 should include:
+The later guide may include:
 
 - current and upcoming programmes;
 - channel numbers, names and logos;
@@ -107,43 +168,50 @@ Version 1 should include:
 - programme synopsis and artwork where available;
 - a visible current-time marker;
 - navigation by remote control;
-- a reminder function.
+- reminders.
 
-Search, recording and favourites may be added after the core guide is stable.
+Search, recording and favourites remain later possibilities.
 
 ## Control methods
 
 Primary control is a simple USB remote. Keyboard input is supported for development, testing and emergency maintenance.
 
-Expected controls include:
+Basic Mode controls should include:
 
-- directional navigation;
+- directional navigation where needed;
 - OK/select;
 - back;
-- guide;
 - information;
 - play/pause;
-- channel up/down;
-- number entry when available.
+- channel up/down.
 
-## Administration
+Number entry, guide and richer navigation controls may be introduced with Enhanced Guide Mode when supported by the selected remote.
 
-Advanced configuration is performed through a local web interface, including:
+## Administration web interface
 
-- media sources;
+The local web interface remains a core requirement from the early implementation stages. It is not deferred with Enhanced Guide Mode.
+
+It should provide, in controlled increments:
+
+- first-run setup;
+- media-source configuration;
 - media scanning and matching;
-- channel creation and editing;
-- schedule rules;
-- channel logos and themes;
+- manual catalogue corrections;
+- basic channel creation and editing;
+- content-pool configuration;
 - startup behaviour;
-- user-facing settings;
-- updates, diagnostics and backups.
+- CRT-effect toggle;
+- remote settings;
+- device status and diagnostics;
+- updates, backups and restore.
+
+Advanced scheduling, guide themes, seasonal channels and similar features can be added to the same web interface when their corresponding product phases begin.
 
 A limited settings screen may be available on the television. Sensitive or disruptive settings must be PIN protected.
 
 ## Advertising and continuity
 
-Advertising is low priority for the initial product. It should not delay the core television experience.
+Advertising is low priority and must not delay Basic Mode, Enhanced Guide Mode or core reliability work.
 
 A later phase may add optional:
 
@@ -161,15 +229,22 @@ The repository, installer and release packages must not contain copyrighted prog
 
 Users are responsible for supplying and lawfully using their own media. Sample development assets must be original, licensed or public domain.
 
-## Version 1 definition
+## Basic Mode release definition
 
-Version 1 is successful when a user can:
+Basic Mode is successful when a user can:
 
 1. install or boot a configured NostalgiaBox appliance;
 2. add local or network media through the web interface;
-3. create or edit real-time channels;
-4. watch channels from a sofa using only a remote;
-5. change channels and open the programme guide;
-6. pause and resume playback;
-7. restart the appliance without seeing Linux;
-8. recover from routine playback and media errors without technical intervention.
+3. scan and correct the internal media catalogue;
+4. create or edit simple real-time channels through the web interface;
+5. watch and change channels from a sofa using a remote;
+6. see a compact channel-information overlay;
+7. pause and resume playback;
+8. restart the appliance without seeing Linux;
+9. recover from routine playback and media errors without technical intervention.
+
+A full EPG, reminders, advanced channel-selection interface, seasonal channels and adverts are not required for Basic Mode completion.
+
+## Enhanced Guide Mode release definition
+
+Enhanced Guide Mode is successful when the user can optionally enable a richer set-top-box experience that includes channel discovery, a full original programme guide, programme details and reminders without weakening or replacing Basic Mode.
