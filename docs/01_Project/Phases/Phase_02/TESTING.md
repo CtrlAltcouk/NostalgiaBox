@@ -11,7 +11,7 @@
 
 | Area | Status | Evidence / notes |
 | --- | --- | --- |
-| Technology ADRs | BLOCKED | Phase 2 ADRs must be accepted before implementation. |
+| Technology ADRs | PASS | ADR-007 through ADR-011 accepted for Python/FastAPI, SQLite, MPV JSON IPC, UTC time handling and frontend separation. |
 | Python backend skeleton | BLOCKED | Not yet implemented. |
 | SQLite/Alembic migration path | BLOCKED | Not yet implemented. |
 | Pure timeline domain engine | BLOCKED | Not yet implemented. |
