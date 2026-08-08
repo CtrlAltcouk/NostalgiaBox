@@ -20,9 +20,12 @@
 | Reference-Dell MPV JSON IPC/control validation | PASS | Task 2.4 controlled a real MPV instance through `/tmp/nostalgiabox-mpv-test.sock`: health, load at a non-zero start, fullscreen VA-API playback, playing/position queries, visible pause/resume, absolute seek, stop and return to idle all passed. Phase 1 HDMI/ALSA capability remains independently proven; concurrent second-MPV HDMI acquisition is not required. |
 | Fake player adapter | PASS | Deterministic Player-protocol fake covers exact load/seek positions, state transitions, history and simulated typed failure. |
 | Channel 001 seed timeline | PASS | Task 2.3 validated external manifest parsing, deterministic persistence, idempotent re-seeding, target-only replacement and transaction rollback. No media is committed or inspected. |
-| Correct mid-programme tune offset | PARTIAL | Task 2.2 exact domain resolution and `timedelta` offset tests passed. Runtime/MPV tuning remains Task 2.5. |
-| Restart/rejoin behaviour | BLOCKED | Not yet implemented. |
-| Suspend/live re-sync path | BLOCKED | Not yet implemented. |
+| Automated one-channel runtime orchestration | PASS | Task 2.5 initial tune, exact boundaries, boundary-only loads, successive entries, forced resync, explicit failures, snapshots and structured logging pass with FakeClock/FakePlayer. |
+| SQLite-to-FakePlayer runtime integration | PASS | An Alembic-migrated temporary file-backed SQLite database is seeded, resolved through the real short-session persistence adapter and loads the correct path/offset into FakePlayer. |
+| Reference-Dell live Channel 001 proof | PASS | The isolated live runtime loaded persisted Channel 001, joined mid-programme at the calculated offset, advanced automatically across boundaries, rejoined correctly after a fresh-process restart and continued boundary operation afterward. |
+| Correct mid-programme tune offset | PASS | Automated exact-offset coverage and the reference-Dell live MPV proof both passed; observed initial tune joined approximately 26.03 seconds into the scheduled programme. |
+| Restart/rejoin behaviour | PASS | A new proof process ignored prior player position, recalculated wall-clock truth and joined Programme 07 approximately 1.593 seconds after its scheduled start. |
+| Suspend/live re-sync path | PARTIAL | Forced same-entry and crossed-boundary resynchronisation pass with simulated lost time. Actual system suspend/resume hooks are deliberately outside Task 2.5 and remain unimplemented. |
 | Input abstraction proof | BLOCKED | Not yet implemented. |
 | Missing/corrupt media handling | BLOCKED | Not yet implemented. |
 | Player failure handling | BLOCKED | Not yet implemented. |
@@ -104,6 +107,105 @@ the exclusive HDMI device, not a Task 2.4 adapter failure and not the production
 The approved production architecture uses one separately supervised persistent MPV instance. This
 evidence does not claim that two concurrent MPV processes can share HDMI audio. Phase 2 remains in
 progress because later Phase 2 tasks and the one-channel runtime proof are still outstanding.
+
+### Task 2.5 automated evidence
+
+The Windows Python 3.13 development suite passes 161 tests with the existing AF_UNIX integration
+test skipped because that environment does not expose AF_UNIX. The 31 new passing tests cover
+initial tune at start/mid-entry, exact microsecond boundaries, same-entry no-load ticks, successive
+boundary loads, fresh-runtime restart/rejoin, forced resync within/across entries, unavailable
+timeline/media/coverage, observable typed player failure, exact snapshots, structured JSON log
+context, explicit CLI targets/in-memory rejection/once/Ctrl+C behavior, channel-number lookup,
+Alembic-migrated file-backed SQLite through the real persistence adapter into FakePlayer, inactive
+and active `/runtime` responses, route layering and unchanged `/health` behavior. Ruff lint/format
+and strict mypy pass. No automated Task 2.5 test requires MPV or real-time sleeping.
+
+Initial reference-Dell collection exposed a Linux portability failure:
+
+```text
+ModuleNotFoundError: No module named 'tests'
+```
+
+Shared `FakeClock` support was moved into the explicit test-only `tests.support` package, integration
+tests gained a package marker and all cross-test consumers now use package-relative imports. No
+production code changed. After correction, Debian 13 with Python 3.13.5 passed all 162 tests,
+including the real AF_UNIX integration test. `ruff check .`, `ruff format --check .` and strict
+`mypy` over 70 source files also passed on the reference Dell.
+
+### Task 2.5 isolated reference-Dell validation
+
+Task 2.5 live Channel 001 acceptance is **PASS** on the reference Debian 13 Dell. Validation used
+only these isolated temporary resources:
+
+```text
+Database: /tmp/nostalgiabox-phase25.db
+Manifest: /tmp/nostalgiabox-phase25.json
+MPV socket: /tmp/nostalgiabox-phase25-mpv.sock
+```
+
+The production database, production MPV socket, `/opt/nostalgiabox/launch.sh`, autologin, X startup
+and boot configuration were not modified. An isolated fullscreen, borderless, VA-API MPV used the
+existing X display and `--no-audio`. Audio was intentionally omitted because Phase 1/Task 2.4 had
+already established HDMI audio and the normal player owns the exclusive HDMI ALSA device. The
+temporary timeline used 30-second logical programmes referencing operator-owned existing media.
+
+#### Mid-programme initial tune — PASS
+
+The persisted timeline resolved `phase25-01` and visibly loaded it at the calculated non-zero
+position:
+
+```text
+entry_start_utc: 2026-08-08T21:43:28.482702+00:00
+now_utc:         2026-08-08T21:43:54.513921+00:00
+live_offset_us:  26031219
+```
+
+This is approximately 26.03 seconds into the scheduled programme.
+
+#### Automatic boundary advancement — PASS
+
+Continuous operation advanced from `phase25-04` to `phase25-05` without operator intervention:
+
+```text
+action:          boundary_advance
+entry_start_utc: 2026-08-08T21:45:28.482702+00:00
+now_utc:         2026-08-08T21:45:28.741586+00:00
+live_offset_us:  258884
+```
+
+The next programme visibly loaded approximately 0.259 seconds after its scheduled boundary.
+
+#### Fresh-process restart/rejoin — PASS
+
+The proof runtime was stopped with Ctrl+C while its timeline and isolated MPV remained available.
+A new process performed an `initial_tune` rather than resuming a remembered cursor:
+
+```text
+media_item_id:   phase25-07
+entry_start_utc: 2026-08-08T21:46:28.482702+00:00
+now_utc:         2026-08-08T21:46:30.075623+00:00
+live_offset_us:  1592921
+```
+
+It correctly rejoined Programme 07 approximately 1.593 seconds after its scheduled start.
+
+#### Post-restart boundary advancement — PASS
+
+The restarted runtime subsequently advanced to `phase25-08`:
+
+```text
+action:          boundary_advance
+entry_start_utc: 2026-08-08T21:46:58.482702+00:00
+now_utc:         2026-08-08T21:46:58.592857+00:00
+live_offset_us:  110155
+```
+
+Programme 08 visibly loaded approximately 0.110 seconds after its scheduled start. Together with
+the automated same-entry no-reload and forced-resync tests, this proves persisted Channel 001
+loading, real wall-clock resolution, exact live offsets, Player-to-MPV JSON IPC execution,
+boundary-only advancement and fresh-process wall-clock rejoin. Actual system suspend/resume
+integration remains outside Task 2.5. Phase 2 remains in progress because later planned tasks have
+not been completed.
 
 ## Unit-test requirements
 

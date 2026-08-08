@@ -27,7 +27,8 @@ from nostalgiabox.domain import (
     build_sequential_timeline,
     resolve_active_entry,
 )
-from tests.unit.domain.fakes import FakeClock
+
+from ...support.clock import FakeClock
 
 START = datetime(2026, 8, 8, 18, 0, tzinfo=UTC)
 CHANNEL = Channel(id=ChannelId("channel-001"), number=1, name="Channel 001")

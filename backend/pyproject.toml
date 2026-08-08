@@ -28,6 +28,7 @@ dev = [
 [project.scripts]
 nostalgiabox-seed = "nostalgiabox.seed.cli:main"
 nostalgiabox-mpv-validate = "nostalgiabox.playback.validate:main"
+nostalgiabox-channel-proof = "nostalgiabox.proof.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

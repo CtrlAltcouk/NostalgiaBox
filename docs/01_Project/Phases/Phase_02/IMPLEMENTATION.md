@@ -126,6 +126,10 @@ ownership and ordering remain deferred; the adapter does not spawn, kill or supe
 
 ## Task 2.5 — One-channel runtime proof
 
+**Implementation status:** complete. Automated Debian 13 validation and the isolated live Channel
+001 proof passed on the reference Dell, including mid-programme tune, automatic boundary advance,
+fresh-process restart/rejoin and continued boundary operation after restart.
+
 ### Objectives
 
 Join persistence, timeline resolution and player control to demonstrate the central NostalgiaBox behaviour.
@@ -140,6 +144,25 @@ Join persistence, timeline resolution and player control to demonstrate the cent
 - Provide an explicit re-sync application command suitable for suspend/resume integration.
 - Expose minimal development/health API state for observing the selected entry and calculated offset.
 - Log channel ID, timeline-entry ID, now/start/end times and target seek offset for diagnostics.
+
+### Implemented Task 2.5 shape
+
+- `application.runtime.ChannelRuntime` owns initial synchronisation, boundary-only normal ticks,
+  forced live resynchronisation, immutable runtime snapshots and explicit runtime failures.
+- Application-owned timeline, media-location and channel-lookup protocols keep persistence values
+  and SQLAlchemy outside orchestration.
+- `persistence.runtime_sources.SqlAlchemyRuntimeDataSource` uses a closed short-lived session for
+  each lookup; no session remains open while the player is commanded.
+- Structured load logs include action, IDs, UTC resolution/boundary instants and exact target
+  offset. Same-entry polls log only at debug level.
+- `nostalgiabox-channel-proof` requires explicit database URL, MPV socket and channel number,
+  supports `--once` and a configurable continuous poll, and neither migrates/seeds nor launches MPV.
+- `GET /runtime` reports the latest injected snapshot or an explicit inactive state. It is
+  observation-only; `/health` is unchanged.
+
+No authoritative playback position is persisted. A new runtime and forced resynchronisation both
+recompute wall-clock truth using the Task 2.2 resolver. Continuous drift correction, system suspend
+hooks, production services and control API endpoints remain deferred.
 
 ### Acceptance
 

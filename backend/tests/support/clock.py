@@ -1,4 +1,4 @@
-"""Deterministic test doubles for domain ports."""
+"""Deterministic test-only clock double shared across test layers."""
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
