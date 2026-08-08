@@ -1,5 +1,6 @@
 """Typed application settings loaded from environment variables."""
 
+from pathlib import Path
 from typing import Literal, Self
 
 from pydantic import Field, model_validator
@@ -22,6 +23,8 @@ class Settings(BaseSettings):
     database_url: str = Field(default="sqlite+pysqlite:///:memory:", min_length=1)
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"] = "INFO"
     local_timezone: str = Field(default="Europe/London", min_length=1)
+    mpv_socket_path: Path = Path("/run/nostalgiabox/mpv.sock")
+    mpv_command_timeout_seconds: float = Field(default=2.0, gt=0)
 
     @model_validator(mode="after")
     def require_persistent_production_database(self) -> Self:
