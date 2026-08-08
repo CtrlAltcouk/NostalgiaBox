@@ -149,30 +149,32 @@ The existing Phase 1 reference remote profile remains development input. A repla
 
 ### MediaItem
 
-Suggested Phase 2 fields:
+Implemented Task 2.2 fields:
 
 - `id`
-- `path`
 - `title`
-- `duration_ms`
-- `content_kind`
+- `duration` as an exact Python `timedelta`
 
-`path` is acceptable for seeded Phase 2 media. Phase 3 replaces manual seeding with catalogue-owned stable media records and source management.
+Filesystem path/source information belongs to later catalogue and persistence infrastructure, not
+the pure Task 2.2 `MediaItem` domain value. The persistence representation of duration is
+deliberately deferred to Task 2.3; timeline-domain arithmetic uses `timedelta`.
 
 ### Channel
 
-Suggested fields:
+Implemented Task 2.2 fields:
 
 - `id`
 - `number`
 - `name`
-- `enabled`
 
 Channel 001 is the only required Phase 2 channel.
 
+Enabled/disabled state may be introduced at the appropriate persistence or application boundary
+later. It is not required by the pure Task 2.2 timeline engine.
+
 ### TimelineEntry
 
-Suggested fields:
+Implemented Task 2.2 fields:
 
 - `id`
 - `channel_id`
@@ -180,6 +182,9 @@ Suggested fields:
 - `content_kind`
 - `start_utc`
 - `end_utc`
+
+`ContentKind` belongs to `TimelineEntry`, allowing the interval model to gain future content kinds
+without placing scheduling concerns on `MediaItem`. Task 2.2 implements only `PROGRAMME`.
 
 Invariant:
 
@@ -235,6 +240,23 @@ Seek offset = 00:09:30
 
 No playlist cursor is the source of truth. Wall-clock time plus the deterministic channel timeline is authoritative.
 
+### Task 2.2 domain implementation details
+
+The pure domain engine represents channel timelines as non-empty immutable sequences in the
+order supplied by the caller. It does not silently sort entries. A contiguous channel timeline
+rejects entries for another channel, chronological misordering, overlaps and gaps with explicit
+domain exceptions.
+
+Active-entry intervals are half-open: `start_utc <= now_utc < end_utc`. Resolution returns the
+active immutable entry together with an exact `timedelta` live offset. An instant before the first
+entry or at/after the final entry raises an explicit timeline-not-covered error; the engine never
+chooses a nearest entry.
+
+Sequential proof construction accepts a channel, an absolute start instant and media items in a
+specified order. It derives each end from the supplied positive `timedelta` duration and uses that
+end as the next start. Entry identifiers are derived deterministically from the channel, UTC start
+and sequence position. Construction performs no randomisation, persistence or media-file access.
+
 ## Time handling
 
 - Persist absolute instants in UTC.
@@ -243,6 +265,12 @@ No playlist cursor is the source of truth. Wall-clock time plus the deterministi
 - Use an injected `Clock` interface so unit tests can fix time precisely.
 - Keep configured local timezone, such as `Europe/London`, for schedule authoring/display boundaries rather than timeline identity.
 - Explicitly test DST transitions before Phase 2 closes.
+
+Task 2.2 uses Python `datetime`/`timedelta` microsecond precision throughout. Naive datetimes are
+rejected. Aware non-UTC values accepted at public domain boundaries are explicitly normalised with
+`astimezone(UTC)` before comparison or storage in immutable domain values. The production
+`SystemClock` returns UTC; application orchestration accepts an injected `Clock`, allowing tests to
+use a fixed and advanceable fake without timeline functions reading system time directly.
 
 ## Restart and suspend behaviour
 
