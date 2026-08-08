@@ -12,8 +12,8 @@
 | Area | Status | Evidence / notes |
 | --- | --- | --- |
 | Technology ADRs | PASS | ADR-007 through ADR-011 accepted for Python/FastAPI, SQLite, MPV JSON IPC, UTC time handling and frontend separation. |
-| Python backend skeleton | BLOCKED | Not yet implemented. |
-| SQLite/Alembic migration path | BLOCKED | Not yet implemented. |
+| Python backend skeleton | PASS | Task 2.1: Python 3.13 package installs; API, configuration, logging and layer scaffolding validated by pytest, Ruff and mypy. |
+| SQLite/Alembic migration path | PARTIAL | Task 2.1: SQLAlchemy engine/session and empty Alembic environment validated. Domain tables and the first revision remain correctly deferred to Task 2.2/2.3. |
 | Pure timeline domain engine | BLOCKED | Not yet implemented. |
 | Fake clock / deterministic time tests | BLOCKED | Not yet implemented. |
 | MPV JSON IPC adapter | BLOCKED | Not yet implemented. |

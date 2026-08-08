@@ -6,7 +6,7 @@ The project targets a dedicated living-room device rather than a general-purpose
 
 ## Project status
 
-Early planning and architecture phase.
+Phase 2 core architecture implementation is in progress.
 
 ## Initial hardware target
 
@@ -60,3 +60,6 @@ NostalgiaBox/
 The project will use documentation-first planning. Significant technical decisions will be recorded as Architecture Decision Records before implementation begins.
 
 See [ROADMAP.md](ROADMAP.md) and the [documentation index](docs/README.md).
+
+Backend setup, local run, test, lint, typing and migration commands are documented in
+[`backend/README.md`](backend/README.md).

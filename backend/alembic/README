@@ -1,0 +1,5 @@
+Alembic migrations for the NostalgiaBox core database.
+
+Task 2.1 intentionally defines metadata and migration infrastructure without creating domain
+tables. The first revision will be added only after the Task 2.2 domain model is approved.
+
