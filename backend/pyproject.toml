@@ -13,7 +13,6 @@ dependencies = [
   "fastapi==0.116.1",
   "pydantic-settings==2.10.1",
   "sqlalchemy==2.0.41",
-  "tzdata==2025.2",
   "uvicorn[standard]==0.35.0",
 ]
 
@@ -23,6 +22,7 @@ dev = [
   "mypy==1.17.1",
   "pytest==8.4.1",
   "ruff==0.12.11",
+  "tzdata==2026.3",
 ]
 
 [tool.setuptools.packages.find]

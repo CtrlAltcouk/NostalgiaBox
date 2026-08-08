@@ -29,12 +29,13 @@
 
 ### Task 2.2 automated evidence
 
-The Python 3.13 development suite passed 41 tests: all 11 Task 2.1 tests plus 30 Task 2.2
+The Python 3.13 development suite passed 45 tests: all 11 Task 2.1 tests plus 34 Task 2.2
 domain/application tests. Task 2.2 coverage includes exact starts, mid-entry offsets, one
 microsecond before a boundary, exact half-open boundaries, before/after coverage errors, naive
-datetime rejection, aware non-UTC normalisation, non-positive durations, gaps, overlaps, invalid
-order, channel isolation, deterministic sequential construction, fake-clock advancement and UTC
-DST resolution. Ruff lint/format and strict mypy validation also passed during Task 2.2 development.
+datetime rejection, aware non-UTC normalisation, media/channel invariants, non-positive durations,
+gaps, overlaps, invalid order, channel isolation, deterministic sequential construction,
+fake-clock advancement and UTC DST resolution. Ruff lint/format and strict mypy validation also
+passed during Task 2.2 development.
 
 ## Unit-test requirements
 

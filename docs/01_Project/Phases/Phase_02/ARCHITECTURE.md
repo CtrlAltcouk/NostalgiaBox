@@ -149,30 +149,32 @@ The existing Phase 1 reference remote profile remains development input. A repla
 
 ### MediaItem
 
-Suggested Phase 2 fields:
+Implemented Task 2.2 fields:
 
 - `id`
-- `path`
 - `title`
-- `duration_ms`
-- `content_kind`
+- `duration` as an exact Python `timedelta`
 
-`path` is acceptable for seeded Phase 2 media. Phase 3 replaces manual seeding with catalogue-owned stable media records and source management.
+Filesystem path/source information belongs to later catalogue and persistence infrastructure, not
+the pure Task 2.2 `MediaItem` domain value. The persistence representation of duration is
+deliberately deferred to Task 2.3; timeline-domain arithmetic uses `timedelta`.
 
 ### Channel
 
-Suggested fields:
+Implemented Task 2.2 fields:
 
 - `id`
 - `number`
 - `name`
-- `enabled`
 
 Channel 001 is the only required Phase 2 channel.
 
+Enabled/disabled state may be introduced at the appropriate persistence or application boundary
+later. It is not required by the pure Task 2.2 timeline engine.
+
 ### TimelineEntry
 
-Suggested fields:
+Implemented Task 2.2 fields:
 
 - `id`
 - `channel_id`
@@ -180,6 +182,9 @@ Suggested fields:
 - `content_kind`
 - `start_utc`
 - `end_utc`
+
+`ContentKind` belongs to `TimelineEntry`, allowing the interval model to gain future content kinds
+without placing scheduling concerns on `MediaItem`. Task 2.2 implements only `PROGRAMME`.
 
 Invariant:
 

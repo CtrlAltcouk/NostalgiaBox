@@ -7,8 +7,10 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from nostalgiabox.domain import (
+    Channel,
     ChannelId,
     ContentKind,
+    InvalidChannelError,
     InvalidIdentifierError,
     InvalidMediaItemError,
     InvalidTimelineEntryError,
@@ -34,6 +36,22 @@ def test_identifiers_reject_empty_values(identifier_type: Callable[[str], object
 def test_media_item_rejects_non_positive_duration(duration: timedelta) -> None:
     with pytest.raises(InvalidMediaItemError, match="duration must be greater than zero"):
         MediaItem(id=MediaItemId("media-a"), title="Programme A", duration=duration)
+
+
+def test_media_item_rejects_blank_title() -> None:
+    with pytest.raises(InvalidMediaItemError, match="title must not be empty"):
+        MediaItem(id=MediaItemId("media-a"), title="  ", duration=timedelta(minutes=1))
+
+
+@pytest.mark.parametrize("number", [0, -1])
+def test_channel_rejects_non_positive_number(number: int) -> None:
+    with pytest.raises(InvalidChannelError, match="number must be greater than zero"):
+        Channel(id=ChannelId("channel-001"), number=number, name="Channel 001")
+
+
+def test_channel_rejects_blank_name() -> None:
+    with pytest.raises(InvalidChannelError, match="name must not be empty"):
+        Channel(id=ChannelId("channel-001"), number=1, name="  ")
 
 
 @pytest.mark.parametrize(
