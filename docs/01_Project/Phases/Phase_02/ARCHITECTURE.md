@@ -113,6 +113,45 @@ Production database location:
 /var/lib/nostalgiabox/nostalgiabox.db
 ```
 
+#### Task 2.3 schema and conversion boundary
+
+The first migration (`20260808_0001`) creates three tables:
+
+- `media_items(id, title, duration_us, path)` with `duration_us > 0`;
+- `channels(id, number, name)` with a positive unique channel number;
+- `timeline_entries(id, channel_id, media_item_id, content_kind, start_utc_us,
+  end_utc_us)` with foreign keys to channels/media, `end_utc_us > start_utc_us`, unique
+  `(channel_id, start_utc_us)` and an ordered lookup index on those columns.
+
+SQLite stores durations and absolute instants as signed `INTEGER` microseconds. Timeline instants
+are exact offsets from `1970-01-01T00:00:00Z`; conversion uses integer `datetime`/`timedelta`
+arithmetic and never floating-point timestamps. Reconstructed instants are aware UTC values.
+
+`StoredMediaItem` is the persistence-side boundary pairing an approved domain `MediaItem` with a
+filesystem path. Paths do not enter the pure domain model and Task 2.3 does not inspect or require
+them to exist. Explicit mappers convert ORM records to domain/stored-media values. Unknown content
+kinds and corrupt persisted values raise controlled persistence conversion errors.
+
+`MediaRepository`, `ChannelRepository` and `TimelineRepository` accept an explicit SQLAlchemy
+session and never commit it. Missing media/channel lookups return `None`; loading a missing channel
+or empty timeline raises an explicit not-found error. Timeline loading orders by `start_utc_us` and
+constructs `ChannelTimeline`, so domain validation remains authoritative for order, gaps and
+overlaps. SQLite engines enable `PRAGMA foreign_keys = ON` on every connection; WAL is not enabled.
+
+#### Task 2.3 proof seed policy
+
+The proof seed tool consumes an external JSON manifest containing channel identity, aware
+`start_utc`, and ordered media objects with `id`, `title`, positive `duration_us` and `path`.
+It requires an explicit persistent SQLite `--database-url`, never assumes the production path,
+does not inspect media files and does not run migrations. A missing schema instructs the operator
+to run `alembic upgrade head`.
+
+Within one caller-owned transaction, the seed operation uses the Task 2.2 sequential builder,
+upserts the named channel and supplied media by stable ID, and replaces timeline entries only for
+that channel. Reapplying an identical manifest creates no duplicates. Unrelated channels and media
+are retained. A channel-number conflict with a different stable channel ID fails explicitly, and
+any failed operation rolls back the complete transaction.
+
 ### API boundary
 
 FastAPI provides the future-facing local API boundary. Phase 2 should keep the API minimal and oriented toward validation/health rather than prematurely implementing the Phase 3 Web UI.

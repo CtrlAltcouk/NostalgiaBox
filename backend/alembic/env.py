@@ -5,7 +5,7 @@ from logging.config import fileConfig
 from alembic import context
 
 from nostalgiabox.config.settings import Settings
-from nostalgiabox.persistence.base import Base
+from nostalgiabox.persistence import models as persistence_models
 
 config = context.config
 if config.config_file_name is not None:
@@ -13,7 +13,7 @@ if config.config_file_name is not None:
 
 settings = Settings()
 config.set_main_option("sqlalchemy.url", settings.database_url.replace("%", "%%"))
-target_metadata = Base.metadata
+target_metadata = persistence_models.Base.metadata
 
 
 def run_migrations_offline() -> None:
