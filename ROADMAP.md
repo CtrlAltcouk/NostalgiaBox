@@ -23,11 +23,15 @@ Define the product, requirements, delivery controls, risks and architecture deci
 
 ## Phase 1 — Hardware validation and appliance base
 
+**Status: Complete — 2026-08-08.** The reference Dell platform now boots into a hidden appliance playback session with working display, audio, hardware-accelerated playback, remote input and suspend/resume behaviour. The current Nordic USB remote can initiate standby but cannot wake the machine from S3; a wake-capable replacement receiver is required for the final sofa-only power experience and is documented in [`docs/03_Hardware/REMOTE_CONTROL.md`](docs/03_Hardware/REMOTE_CONTROL.md).
+
 Validate the Dell OptiPlex 7050, select the operating system, prove hardware-accelerated playback and establish hidden, reliable appliance startup.
 
 **Exit:** the hardware and base installation are repeatable and stable.
 
 ## Phase 2 — Core architecture and proof of concept
+
+**Status: Next.**
 
 Select technologies and prove one continuously advancing real-time channel that tunes at the correct programme offset.
 
