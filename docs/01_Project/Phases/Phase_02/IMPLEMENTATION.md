@@ -126,8 +126,9 @@ ownership and ordering remain deferred; the adapter does not spawn, kill or supe
 
 ## Task 2.5 — One-channel runtime proof
 
-**Implementation status:** automated orchestration and SQLite/FakePlayer integration complete;
-reference-Dell live Channel 001 validation remains pending manual execution after review.
+**Implementation status:** complete. Automated Debian 13 validation and the isolated live Channel
+001 proof passed on the reference Dell, including mid-programme tune, automatic boundary advance,
+fresh-process restart/rejoin and continued boundary operation after restart.
 
 ### Objectives
 
