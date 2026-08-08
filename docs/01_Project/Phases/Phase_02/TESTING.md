@@ -14,18 +14,27 @@
 | Technology ADRs | PASS | ADR-007 through ADR-011 accepted for Python/FastAPI, SQLite, MPV JSON IPC, UTC time handling and frontend separation. |
 | Python backend skeleton | PASS | Task 2.1 validated on the reference Debian 13 appliance with Python 3.13.5: package installation succeeded, pytest passed 11 tests, Ruff lint/format passed, mypy strict passed, Alembic current/upgrade head passed, and the live `/health` probe returned HTTP 200 with the expected service response. |
 | SQLite/Alembic migration path | PARTIAL | Task 2.1: SQLAlchemy engine/session and empty Alembic environment validated. Domain tables and the first revision remain correctly deferred to Task 2.2/2.3. |
-| Pure timeline domain engine | BLOCKED | Not yet implemented. |
-| Fake clock / deterministic time tests | BLOCKED | Not yet implemented. |
+| Pure timeline domain engine | PASS | Task 2.2 automated validation passed: immutable domain values, contiguous timeline validation, half-open active-entry resolution and exact live offsets are covered by the unit suite. |
+| Fake clock / deterministic time tests | PASS | Task 2.2 fixed/repeated resolution and explicit clock advancement across a boundary passed. `SystemClock` returns aware UTC. |
 | MPV JSON IPC adapter | BLOCKED | Not yet implemented. |
 | Fake player adapter | BLOCKED | Not yet implemented. |
-| Channel 001 seed timeline | BLOCKED | Not yet implemented. |
-| Correct mid-programme tune offset | BLOCKED | Not yet implemented. |
+| Channel 001 seed timeline | PARTIAL | Task 2.2 deterministic pure sequential construction passed with varied supplied durations. Persistent records and the seed command remain Task 2.3. |
+| Correct mid-programme tune offset | PARTIAL | Task 2.2 exact domain resolution and `timedelta` offset tests passed. Runtime/MPV tuning remains Task 2.5. |
 | Restart/rejoin behaviour | BLOCKED | Not yet implemented. |
 | Suspend/live re-sync path | BLOCKED | Not yet implemented. |
 | Input abstraction proof | BLOCKED | Not yet implemented. |
 | Missing/corrupt media handling | BLOCKED | Not yet implemented. |
 | Player failure handling | BLOCKED | Not yet implemented. |
-| Timezone/DST tests | BLOCKED | Not yet implemented. |
+| Timezone/DST tests | PARTIAL | Task 2.2 UTC resolution passed representative `Europe/London` spring-forward and autumn-fold cases. Local schedule authoring and full Phase 2 integration evidence remain. |
+
+### Task 2.2 automated evidence
+
+The Python 3.13 development suite passed 41 tests: all 11 Task 2.1 tests plus 30 Task 2.2
+domain/application tests. Task 2.2 coverage includes exact starts, mid-entry offsets, one
+microsecond before a boundary, exact half-open boundaries, before/after coverage errors, naive
+datetime rejection, aware non-UTC normalisation, non-positive durations, gaps, overlaps, invalid
+order, channel isolation, deterministic sequential construction, fake-clock advancement and UTC
+DST resolution. Ruff lint/format and strict mypy validation also passed during Task 2.2 development.
 
 ## Unit-test requirements
 

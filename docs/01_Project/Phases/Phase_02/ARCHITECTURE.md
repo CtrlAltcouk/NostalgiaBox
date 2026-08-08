@@ -235,6 +235,23 @@ Seek offset = 00:09:30
 
 No playlist cursor is the source of truth. Wall-clock time plus the deterministic channel timeline is authoritative.
 
+### Task 2.2 domain implementation details
+
+The pure domain engine represents channel timelines as non-empty immutable sequences in the
+order supplied by the caller. It does not silently sort entries. A contiguous channel timeline
+rejects entries for another channel, chronological misordering, overlaps and gaps with explicit
+domain exceptions.
+
+Active-entry intervals are half-open: `start_utc <= now_utc < end_utc`. Resolution returns the
+active immutable entry together with an exact `timedelta` live offset. An instant before the first
+entry or at/after the final entry raises an explicit timeline-not-covered error; the engine never
+chooses a nearest entry.
+
+Sequential proof construction accepts a channel, an absolute start instant and media items in a
+specified order. It derives each end from the supplied positive `timedelta` duration and uses that
+end as the next start. Entry identifiers are derived deterministically from the channel, UTC start
+and sequence position. Construction performs no randomisation, persistence or media-file access.
+
 ## Time handling
 
 - Persist absolute instants in UTC.
@@ -243,6 +260,12 @@ No playlist cursor is the source of truth. Wall-clock time plus the deterministi
 - Use an injected `Clock` interface so unit tests can fix time precisely.
 - Keep configured local timezone, such as `Europe/London`, for schedule authoring/display boundaries rather than timeline identity.
 - Explicitly test DST transitions before Phase 2 closes.
+
+Task 2.2 uses Python `datetime`/`timedelta` microsecond precision throughout. Naive datetimes are
+rejected. Aware non-UTC values accepted at public domain boundaries are explicitly normalised with
+`astimezone(UTC)` before comparison or storage in immutable domain values. The production
+`SystemClock` returns UTC; application orchestration accepts an injected `Clock`, allowing tests to
+use a fixed and advanceable fake without timeline functions reading system time directly.
 
 ## Restart and suspend behaviour
 
