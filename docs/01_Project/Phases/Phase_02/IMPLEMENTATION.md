@@ -83,6 +83,9 @@ Persist the minimum domain state needed for the one-channel proof.
 
 ## Task 2.4 — MPV JSON IPC adapter
 
+**Implementation status:** automated implementation and development validation complete; isolated
+real-MPV validation on the reference Dell remains pending review/manual execution.
+
 ### Objectives
 
 Replace direct shell invocation as the application control model with an explicit player adapter.
@@ -96,6 +99,22 @@ Replace direct shell invocation as the application control model with an explici
 - Keep command transport and event parsing isolated from scheduling logic.
 - Preserve Phase 1 VA-API/full-screen/audio capability through deployment/player configuration rather than hard-coded domain logic.
 - Determine and document whether the core owns MPV directly or whether a separate supervised MPV service is cleaner.
+
+### Implemented Task 2.4 shape
+
+- `application.player` defines the MPV-agnostic `Player` protocol, three-state `PlayerState` and
+  controlled player error hierarchy.
+- `playback.transport` owns persistent AF_UNIX communication, newline framing, unique request IDs,
+  response correlation, queued unsolicited events, timeouts and socket/protocol error translation.
+- `playback.mpv` maps the port to structured MPV commands/properties and is the only playback
+  position float-seconds conversion boundary.
+- `playback.fake` supplies a deterministic state/history fake for Task 2.5 without MPV or clocks.
+- `nostalgiabox-mpv-validate` supplies an explicit, database-free manual command for an isolated
+  reference-appliance test instance.
+
+The chosen supervision model is separately systemd-supervised core and MPV services, with one
+long-running MPV process. The adapter is attach-only. Permanent service units, runtime-directory
+ownership and ordering remain deferred; the adapter does not spawn, kill or supervise MPV.
 
 ### Acceptance
 

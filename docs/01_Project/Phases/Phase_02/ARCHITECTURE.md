@@ -88,14 +88,54 @@ The coordinator consumes a playback interface. The MPV adapter is one implementa
 
 Responsible only for MPV-specific behaviour:
 
-- starting/attaching to the player process according to the selected supervision design;
+- attaching to one already-running player through a configured Unix-domain socket;
 - opening the JSON IPC Unix socket;
 - sending JSON IPC commands;
 - observing properties/events needed by the core;
 - converting MPV failures into typed application errors;
-- applying the proven Phase 1 hardware decode/audio configuration.
+- converting application `timedelta` positions to/from MPV numeric seconds.
 
 The application must not parse MPV terminal output as an API.
+
+#### Task 2.4 player port and JSON IPC boundary
+
+Application orchestration depends on a small `Player` protocol supporting load at an absolute
+position, absolute seek, pause, resume, stop/unload, current position, state, health and close.
+`PlayerState` is deliberately limited to `IDLE`, `PLAYING` and `PAUSED`. Communication failure is
+never represented as idle; it raises a controlled `PlayerUnavailableError`.
+
+The MPV adapter is attach-only. Generic MPV command arrays, property names, JSON, request IDs and
+floating-point seconds remain private to playback infrastructure. Paths are supplied by later
+application orchestration from the Task 2.3 `StoredMediaItem` boundary. The adapter does not query
+persistence, inspect media, run `ffprobe`, or require a path to exist before sending it as a JSON
+value.
+
+`timedelta` positions are rejected when negative and converted to numeric seconds only at the MPV
+boundary. MPV `time-pos` numbers are rounded to the nearest Python microsecond on return. Loading
+uses MPV's structured `loadfile` command with a per-file `start` option; seeking uses explicit
+`absolute+exact` semantics. No domain datetime is converted to local time.
+
+The transport keeps one connection while active, frames messages as newline-delimited UTF-8 JSON,
+assigns monotonically unique request IDs and correlates responses even when reads are partial,
+contain multiple messages, or include responses in a different order. Unsolicited events observed
+while waiting for a response are queued separately and can be drained; Task 2.4 deliberately adds
+no background event thread or complete asynchronous event framework.
+
+The controlled playback error hierarchy is:
+
+```text
+PlayerError
+  PlayerUnavailableError  socket missing/refused, broken connection or EOF
+  PlayerTimeoutError      command response exceeded configured timeout
+  PlayerProtocolError     malformed JSON/response/property data
+  PlayerCommandError      MPV returned a non-success command error
+```
+
+The default typed connection configuration is `/run/nostalgiabox/mpv.sock` with a two-second
+command timeout. Both are configurable through `NOSTALGIABOX_MPV_SOCKET_PATH` and
+`NOSTALGIABOX_MPV_COMMAND_TIMEOUT_SECONDS`; automated tests use only fake or temporary paths.
+`FakePlayer` implements the same application protocol deterministically, records operation history,
+supports one-shot simulated failures and performs no sleeping or clock advancement.
 
 ### Persistence layer
 
@@ -330,14 +370,19 @@ The application must have a resynchronisation path that recalculates current cha
 
 ## Player supervision direction
 
-Production supervision should use systemd. Phase 2 should keep process ownership explicit:
+Task 2.4 fixes the process-ownership direction:
 
-- the NostalgiaBox core is a supervised service;
-- MPV is either started and owned by the core or placed behind a clearly defined supervised player service;
-- one long-running MPV instance is preferred to repeatedly launching a new player for each programme transition;
-- player death must be detectable and recoverable without corrupting schedule state.
+- systemd will supervise the NostalgiaBox core and MPV separately;
+- one long-running, idle-capable MPV instance is preferred;
+- the adapter only attaches through the Unix-domain socket and never launches, kills or supervises MPV;
+- a new core/adapter instance reconnects through IPC, and a lost MPV connection is reported as a
+  typed player-unavailable failure;
+- exact service ordering, runtime-directory creation and permanent unit files are deferred to
+  production runtime/service integration.
 
-The final service split should be validated during the MPV-adapter task and then documented before Phase 2 exit.
+The eventual MPV service configuration owns the Phase 1-proven `--fs`, `--no-border`,
+`--hwdec=vaapi`, HDMI/ALSA audio selection, `--input-ipc-server` socket creation and persistent
+idle-player flags. None of these process flags belongs in domain or application business logic.
 
 ## Frontend strategy
 

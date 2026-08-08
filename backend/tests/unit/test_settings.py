@@ -1,5 +1,7 @@
 """Tests for typed runtime settings."""
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 from pytest import MonkeyPatch
@@ -14,6 +16,8 @@ def test_settings_have_safe_development_defaults() -> None:
     assert settings.database_url == "sqlite+pysqlite:///:memory:"
     assert settings.log_level == "INFO"
     assert settings.local_timezone == "Europe/London"
+    assert settings.mpv_socket_path == Path("/run/nostalgiabox/mpv.sock")
+    assert settings.mpv_command_timeout_seconds == 2.0
 
 
 def test_test_environment_can_use_isolated_in_memory_database() -> None:
@@ -54,6 +58,8 @@ def test_settings_can_be_overridden_by_environment(monkeypatch: MonkeyPatch) -> 
     monkeypatch.setenv("NOSTALGIABOX_DATABASE_URL", production_database_url)
     monkeypatch.setenv("NOSTALGIABOX_LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("NOSTALGIABOX_LOCAL_TIMEZONE", "UTC")
+    monkeypatch.setenv("NOSTALGIABOX_MPV_SOCKET_PATH", "/tmp/explicit-test.sock")
+    monkeypatch.setenv("NOSTALGIABOX_MPV_COMMAND_TIMEOUT_SECONDS", "3.5")
 
     settings = Settings(_env_file=None)
 
@@ -61,3 +67,10 @@ def test_settings_can_be_overridden_by_environment(monkeypatch: MonkeyPatch) -> 
     assert settings.database_url == production_database_url
     assert settings.log_level == "DEBUG"
     assert settings.local_timezone == "UTC"
+    assert settings.mpv_socket_path == Path("/tmp/explicit-test.sock")
+    assert settings.mpv_command_timeout_seconds == 3.5
+
+
+def test_settings_reject_non_positive_mpv_timeout() -> None:
+    with pytest.raises(ValidationError):
+        Settings(mpv_command_timeout_seconds=0)

@@ -16,8 +16,9 @@
 | SQLite/Alembic migration path | PASS | Task 2.3 initial migration passed empty upgrade, repeated upgrade, downgrade and re-upgrade tests on temporary SQLite databases. Exact codecs, constraints, foreign keys and repository round trips are covered. |
 | Pure timeline domain engine | PASS | Task 2.2 automated validation passed: immutable domain values, contiguous timeline validation, half-open active-entry resolution and exact live offsets are covered by the unit suite. |
 | Fake clock / deterministic time tests | PASS | Task 2.2 fixed/repeated resolution and explicit clock advancement across a boundary passed. `SystemClock` returns aware UTC. |
-| MPV JSON IPC adapter | BLOCKED | Not yet implemented. |
-| Fake player adapter | BLOCKED | Not yet implemented. |
+| Automated MPV JSON IPC adapter | PASS | Task 2.4 automated tests cover command mapping, framing, correlation, events, timeouts, EOF, malformed data, command failures, state/position and clean close without a real MPV process. |
+| Reference-Dell MPV JSON IPC validation | PARTIAL | Explicit isolated-socket validation tooling and instructions are complete; real MPV control, display, VA-API and HDMI/ALSA behavior have not yet been executed for Task 2.4 on the Dell. |
+| Fake player adapter | PASS | Deterministic Player-protocol fake covers exact load/seek positions, state transitions, history and simulated typed failure. |
 | Channel 001 seed timeline | PASS | Task 2.3 validated external manifest parsing, deterministic persistence, idempotent re-seeding, target-only replacement and transaction rollback. No media is committed or inspected. |
 | Correct mid-programme tune offset | PARTIAL | Task 2.2 exact domain resolution and `timedelta` offset tests passed. Runtime/MPV tuning remains Task 2.5. |
 | Restart/rejoin behaviour | BLOCKED | Not yet implemented. |
@@ -47,6 +48,36 @@ unknown content kinds, corrupt persisted durations/boundaries, full initial-migr
 manifest validation, idempotent seed replacement, channel isolation, schema safety and rollback.
 All databases and manifests used by automated tests are temporary and never target
 `/var/lib/nostalgiabox`.
+
+### Task 2.4 automated evidence
+
+The Python 3.13 development suite passes 130 tests with one AF_UNIX integration test skipped on
+the Windows development platform. The 59 new passing tests cover the Player protocol and fake,
+non-zero exact positions, negative-position rejection, both conversion directions, awkward Unicode
+paths, structured MPV operations, request-ID uniqueness/correlation, partial and multiple-message
+framing, interleaved events and responses, malformed JSON/structures/properties, EOF/missing socket,
+timeouts, MPV command errors, idle/playing/paused mapping, health and clean connection release. The
+platform-gated test exercises the same transport against a temporary real AF_UNIX fake server on a
+supporting platform. No automated test connects to `/run/nostalgiabox/mpv.sock` or requires MPV.
+
+### Task 2.4 isolated reference-Dell validation (pending)
+
+This procedure is documented evidence direction only; it has not yet been executed.
+
+1. In the `nostalgia` user's active X session, launch a separate idle MPV using an unused dedicated
+   socket such as `/tmp/nostalgiabox-mpv-test.sock`.
+2. Preserve the Phase 1-proven fullscreen, borderless, VA-API and exact working HDMI/ALSA audio
+   settings; add IPC socket creation and persistent idle behavior.
+3. Do not replace `/opt/nostalgiabox/launch.sh`, alter autologin/startx/systemd boot behavior, or
+   use the future `/run/nostalgiabox/mpv.sock` production socket.
+4. Run `nostalgiabox-mpv-validate --socket /tmp/nostalgiabox-mpv-test.sock --media
+   '/srv/nostalgiabox/media/test/<operator-video>' --start-seconds 5 --seek-seconds 10`.
+5. At each prompt verify responsive health, correct non-zero load, position query, pause, resume,
+   absolute seek and stop. Record the installed MPV version and observed results.
+
+The exact launch command and safeguards are in `backend/README.md`. Real MPV behavior, Dell display,
+VA-API decoding and HDMI/ALSA audio remain unvalidated for Task 2.4 and must not be marked PASS until
+that session is actually completed.
 
 ## Unit-test requirements
 

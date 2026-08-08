@@ -1,8 +1,8 @@
 # NostalgiaBox backend
 
 This directory contains the authoritative NostalgiaBox core service. Phase 2 currently includes
-the application foundation, pure deterministic timeline domain, and SQLite persistence/proof seed
-tooling. Playback behavior remains in later Phase 2 tasks.
+the application foundation, pure deterministic timeline domain, SQLite persistence/proof seed
+tooling, and an attach-only MPV JSON IPC player adapter.
 
 ## Requirements
 
@@ -45,6 +45,8 @@ Development settings use the `NOSTALGIABOX_` environment-variable prefix. For ex
 ```bash
 export NOSTALGIABOX_LOG_LEVEL=DEBUG
 export NOSTALGIABOX_DATABASE_URL=sqlite:////tmp/nostalgiabox-dev.db
+export NOSTALGIABOX_MPV_SOCKET_PATH=/tmp/nostalgiabox-mpv-dev.sock
+export NOSTALGIABOX_MPV_COMMAND_TIMEOUT_SECONDS=2
 ```
 
 The safe development default uses an ephemeral in-memory SQLite database. Set an ignored
@@ -131,3 +133,40 @@ proof database where the SQLite CLI is installed:
 sqlite3 /tmp/nostalgiabox-proof.db \
   'SELECT channel_id, media_item_id, start_utc_us, end_utc_us FROM timeline_entries ORDER BY start_utc_us;'
 ```
+
+## Manually validate the MPV adapter
+
+Task 2.4 attaches to an MPV process launched separately; it never starts or stops that process. On
+the reference Dell, first launch an isolated test MPV instance in the `nostalgia` user's active X
+session with a dedicated socket that is not the future production socket:
+
+```bash
+DISPLAY=:0 mpv \
+  --idle=yes \
+  --force-window=yes \
+  --keep-open=yes \
+  --input-ipc-server=/tmp/nostalgiabox-mpv-test.sock \
+  --fs \
+  --no-border \
+  --hwdec=vaapi \
+  --audio-device='<the HDMI/ALSA device proven in Phase 1>'
+```
+
+Use an unused test socket and the actual Phase 1-proven HDMI/ALSA device value for the Dell. Do not
+replace `/opt/nostalgiabox/launch.sh`, alter boot/session services, or use
+`/run/nostalgiabox/mpv.sock` for this isolated validation.
+
+In another shell, supply an operator-owned test video explicitly:
+
+```bash
+nostalgiabox-mpv-validate \
+  --socket /tmp/nostalgiabox-mpv-test.sock \
+  --media '/srv/nostalgiabox/media/test/operator-video.mkv' \
+  --start-seconds 5 \
+  --seek-seconds 10
+```
+
+The command proves health, loads at a non-zero position, queries state/position, pauses, resumes,
+seeks absolutely and stops. It prompts between visible checks, never reads or modifies the
+NostalgiaBox database, and does not launch or terminate MPV. The equivalent source-tree command is
+`python -m nostalgiabox.playback.validate` with the same required arguments.
