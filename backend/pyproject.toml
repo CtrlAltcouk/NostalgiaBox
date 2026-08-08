@@ -25,6 +25,9 @@ dev = [
   "tzdata==2026.3",
 ]
 
+[project.scripts]
+nostalgiabox-seed = "nostalgiabox.seed.cli:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
 
