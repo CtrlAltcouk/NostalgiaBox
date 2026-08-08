@@ -83,8 +83,9 @@ Persist the minimum domain state needed for the one-channel proof.
 
 ## Task 2.4 — MPV JSON IPC adapter
 
-**Implementation status:** automated implementation and development validation complete; isolated
-real-MPV validation on the reference Dell remains pending review/manual execution.
+**Implementation status:** complete. Automated Debian 13 validation and isolated real-MPV JSON IPC
+control validation passed on the reference Dell. Phase 1 HDMI/ALSA playback remains independently
+proven; a concurrent second MPV could not acquire the exclusive busy HDMI ALSA device, as expected.
 
 ### Objectives
 

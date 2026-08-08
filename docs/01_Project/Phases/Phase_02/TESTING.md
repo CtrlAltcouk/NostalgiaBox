@@ -17,7 +17,7 @@
 | Pure timeline domain engine | PASS | Task 2.2 automated validation passed: immutable domain values, contiguous timeline validation, half-open active-entry resolution and exact live offsets are covered by the unit suite. |
 | Fake clock / deterministic time tests | PASS | Task 2.2 fixed/repeated resolution and explicit clock advancement across a boundary passed. `SystemClock` returns aware UTC. |
 | Automated MPV JSON IPC adapter | PASS | Task 2.4 automated tests cover command mapping, framing, correlation, events, timeouts, EOF, malformed data, command failures, state/position and clean close without a real MPV process. |
-| Reference-Dell MPV JSON IPC validation | PARTIAL | Explicit isolated-socket validation tooling and instructions are complete; real MPV control, display, VA-API and HDMI/ALSA behavior have not yet been executed for Task 2.4 on the Dell. |
+| Reference-Dell MPV JSON IPC/control validation | PASS | Task 2.4 controlled a real MPV instance through `/tmp/nostalgiabox-mpv-test.sock`: health, load at a non-zero start, fullscreen VA-API playback, playing/position queries, visible pause/resume, absolute seek, stop and return to idle all passed. Phase 1 HDMI/ALSA capability remains independently proven; concurrent second-MPV HDMI acquisition is not required. |
 | Fake player adapter | PASS | Deterministic Player-protocol fake covers exact load/seek positions, state transitions, history and simulated typed failure. |
 | Channel 001 seed timeline | PASS | Task 2.3 validated external manifest parsing, deterministic persistence, idempotent re-seeding, target-only replacement and transaction rollback. No media is committed or inspected. |
 | Correct mid-programme tune offset | PARTIAL | Task 2.2 exact domain resolution and `timedelta` offset tests passed. Runtime/MPV tuning remains Task 2.5. |
@@ -51,8 +51,9 @@ All databases and manifests used by automated tests are temporary and never targ
 
 ### Task 2.4 automated evidence
 
-The Python 3.13 development suite passes 130 tests with one AF_UNIX integration test skipped on
-the Windows development platform. The 59 new passing tests cover the Player protocol and fake,
+The Windows Python 3.13 development suite passes 130 tests with one AF_UNIX integration test skipped
+because that development environment does not expose AF_UNIX. The 59 new passing tests cover the
+Player protocol and fake,
 non-zero exact positions, negative-position rejection, both conversion directions, awkward Unicode
 paths, structured MPV operations, request-ID uniqueness/correlation, partial and multiple-message
 framing, interleaved events and responses, malformed JSON/structures/properties, EOF/missing socket,
@@ -60,24 +61,49 @@ timeouts, MPV command errors, idle/playing/paused mapping, health and clean conn
 platform-gated test exercises the same transport against a temporary real AF_UNIX fake server on a
 supporting platform. No automated test connects to `/run/nostalgiabox/mpv.sock` or requires MPV.
 
-### Task 2.4 isolated reference-Dell validation (pending)
+Reference Debian 13 automated validation then passed all 131 tests under Python 3.13.5, including
+the AF_UNIX integration test skipped on Windows. `ruff check .`, `ruff format --check .` and strict
+`mypy` all passed; mypy checked 58 source files.
 
-This procedure is documented evidence direction only; it has not yet been executed.
+### Task 2.4 isolated reference-Dell validation
 
-1. In the `nostalgia` user's active X session, launch a separate idle MPV using an unused dedicated
-   socket such as `/tmp/nostalgiabox-mpv-test.sock`.
-2. Preserve the Phase 1-proven fullscreen, borderless, VA-API and exact working HDMI/ALSA audio
-   settings; add IPC socket creation and persistent idle behavior.
-3. Do not replace `/opt/nostalgiabox/launch.sh`, alter autologin/startx/systemd boot behavior, or
-   use the future `/run/nostalgiabox/mpv.sock` production socket.
-4. Run `nostalgiabox-mpv-validate --socket /tmp/nostalgiabox-mpv-test.sock --media
-   '/srv/nostalgiabox/media/test/<operator-video>' --start-seconds 5 --seek-seconds 10`.
-5. At each prompt verify responsive health, correct non-zero load, position query, pause, resume,
-   absolute seek and stop. Record the installed MPV version and observed results.
+Task 2.4 real-MPV JSON IPC/control acceptance is **PASS** on the reference Debian 13 Dell. The
+manual validator connected through `/tmp/nostalgiabox-mpv-test.sock` and used an existing
+operator-owned test video. It successfully demonstrated:
 
-The exact launch command and safeguards are in `backend/README.md`. Real MPV behavior, Dell display,
-VA-API decoding and HDMI/ALSA audio remain unvalidated for Task 2.4 and must not be marked PASS until
-that session is actually completed.
+- IPC health and a real Unix-domain-socket connection;
+- `loadfile` through JSON IPC at a non-zero start position;
+- real fullscreen video output using VA-API;
+- playing-state and real playback-position queries;
+- visible pause and resume on the television;
+- absolute seek;
+- stop and return to MPV idle state.
+
+The validator reported successful state/position information and every visible control operation
+behaved correctly on the television.
+
+#### Audio evidence and concurrent-player limitation
+
+Phase 1 already independently proved working HDMI/ALSA audio through MPV on this Dell. The initial
+isolated Task 2.4 second MPV was deliberately launched with `--no-audio` so it would not compete with
+the still-running Phase 1 player.
+
+A follow-up test forced the isolated second MPV to use `--ao=alsa`. MPV reported:
+
+```text
+[ao/alsa] Playback open error: Device or resource busy
+[ao] Failed to initialize audio driver 'alsa'
+Could not open/initialize audio device -> no sound.
+```
+
+The existing Phase 1 MPV held the exclusive HDMI ALSA device. An earlier unrestricted second-player
+test encountered the same ALSA device-busy condition, fell back to sndio and produced audio through
+the PC speaker. This is the expected limitation of running two concurrent MPV processes against
+the exclusive HDMI device, not a Task 2.4 adapter failure and not the production architecture.
+
+The approved production architecture uses one separately supervised persistent MPV instance. This
+evidence does not claim that two concurrent MPV processes can share HDMI audio. Phase 2 remains in
+progress because later Phase 2 tasks and the one-channel runtime proof are still outstanding.
 
 ## Unit-test requirements
 
