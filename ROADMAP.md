@@ -31,7 +31,7 @@ Validate the Dell OptiPlex 7050, select the operating system, prove hardware-acc
 
 ## Phase 2 — Core architecture and proof of concept
 
-**Status: Next.**
+**Status: In progress — 2026-08-08.** Architecture and technology selection are being completed before the first Codex implementation task. The proof target is one deterministic real-time channel that resolves the correct media item and wall-clock playback offset after tune, restart and resume.
 
 Select technologies and prove one continuously advancing real-time channel that tunes at the correct programme offset.
 
