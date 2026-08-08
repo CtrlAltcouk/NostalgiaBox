@@ -84,6 +84,32 @@ Responsible for translating domain playback intent into player operations:
 
 The coordinator consumes a playback interface. The MPV adapter is one implementation; tests use a fake.
 
+#### Task 2.5 `ChannelRuntime`
+
+The application-layer `ChannelRuntime` joins the existing deterministic resolver to infrastructure
+through four injected ports: `Clock`, `Player`, `ChannelTimelineSource` and
+`MediaLocationSource`. A separate `ChannelLookup` resolves the operator-facing channel number used
+by proof composition. Application code never imports SQLAlchemy repositories, `StoredMediaItem`,
+MPV commands, sockets, FastAPI or filesystem probing.
+
+Initial `synchronise(channel_id)` loads the validated timeline, reads the clock once, delegates the
+half-open interval and exact-offset calculation to the Task 2.2 resolver, resolves the media path
+and calls `Player.load(path, live_offset)`. A fresh runtime has no persisted playback cursor; it
+always rejoins from wall-clock time plus the deterministic timeline.
+
+A normal `tick()` resolves wall-clock truth again. It updates diagnostic state but performs no
+player call while the same entry remains active. When the entry changes it loads the new path once
+at the newly calculated offset. It deliberately does not poll `Player.get_position()` or implement
+continuous drift correction. `resynchronise()` reloads timeline data and forces a player load even
+when the same entry is still active, providing the explicit restart/resume/recovery foundation
+without adding system suspend hooks.
+
+The immutable `RuntimeSnapshot` contains channel ID/number/name, timeline-entry ID, media-item ID,
+current UTC instant, entry UTC boundaries, exact `timedelta` live offset and last action. It omits
+the media path and every persistence/player-specific object. Missing channel/timeline, media
+location and current-time coverage are explicit application failures; `PlayerError` remains typed
+and observable.
+
 ### MPV adapter
 
 Responsible only for MPV-specific behaviour:
@@ -178,6 +204,12 @@ or empty timeline raises an explicit not-found error. Timeline loading orders by
 constructs `ChannelTimeline`, so domain validation remains authoritative for order, gaps and
 overlaps. SQLite engines enable `PRAGMA foreign_keys = ON` on every connection; WAL is not enabled.
 
+Task 2.5 adds `SqlAlchemyRuntimeDataSource`, which implements the application timeline, media-path
+and channel-number ports. Every operation creates and closes its own short-lived session. Timeline
+and path sessions are closed before `ChannelRuntime` commands the player, so no database transaction
+is retained across IPC or playback waits. The adapter translates absent persistent records into
+application-level unavailable errors without exposing ORM or `StoredMediaItem` values.
+
 #### Task 2.3 proof seed policy
 
 The proof seed tool consumes an external JSON manifest containing channel identity, aware
@@ -196,14 +228,15 @@ any failed operation rolls back the complete transaction.
 
 FastAPI provides the future-facing local API boundary. Phase 2 should keep the API minimal and oriented toward validation/health rather than prematurely implementing the Phase 3 Web UI.
 
-Potential proof endpoints may expose:
+Task 2.5 exposes only:
 
 - service health;
-- current channel/timeline resolution;
-- current playback state;
-- explicit tune/re-sync command for development.
+- `GET /runtime`, a read-only projection of an explicitly injected latest runtime snapshot.
 
-The internal domain must not depend on FastAPI request/response types.
+Before initial tune, `/runtime` returns an explicit inactive representation. Route code performs no
+scheduling, persistence or player operations. There are no runtime control endpoints in Task 2.5,
+and the API remains constructible with no database, MPV process or running `ChannelRuntime`. The
+internal domain and application layers do not depend on FastAPI request/response types.
 
 ### Input adapter
 

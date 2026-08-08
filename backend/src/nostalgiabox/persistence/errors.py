@@ -21,6 +21,10 @@ class RecordNotFoundError(PersistenceError):
     """A required persistent record or timeline does not exist."""
 
 
+class RuntimeSchemaMissingError(PersistenceError):
+    """The proof runtime target has not been migrated to the required schema."""
+
+
 class SeedError(PersistenceError):
     """A proof seed operation cannot be completed safely."""
 

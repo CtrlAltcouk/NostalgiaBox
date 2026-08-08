@@ -20,9 +20,12 @@
 | Reference-Dell MPV JSON IPC/control validation | PASS | Task 2.4 controlled a real MPV instance through `/tmp/nostalgiabox-mpv-test.sock`: health, load at a non-zero start, fullscreen VA-API playback, playing/position queries, visible pause/resume, absolute seek, stop and return to idle all passed. Phase 1 HDMI/ALSA capability remains independently proven; concurrent second-MPV HDMI acquisition is not required. |
 | Fake player adapter | PASS | Deterministic Player-protocol fake covers exact load/seek positions, state transitions, history and simulated typed failure. |
 | Channel 001 seed timeline | PASS | Task 2.3 validated external manifest parsing, deterministic persistence, idempotent re-seeding, target-only replacement and transaction rollback. No media is committed or inspected. |
-| Correct mid-programme tune offset | PARTIAL | Task 2.2 exact domain resolution and `timedelta` offset tests passed. Runtime/MPV tuning remains Task 2.5. |
-| Restart/rejoin behaviour | BLOCKED | Not yet implemented. |
-| Suspend/live re-sync path | BLOCKED | Not yet implemented. |
+| Automated one-channel runtime orchestration | PASS | Task 2.5 initial tune, exact boundaries, boundary-only loads, successive entries, forced resync, explicit failures, snapshots and structured logging pass with FakeClock/FakePlayer. |
+| SQLite-to-FakePlayer runtime integration | PASS | An Alembic-migrated temporary file-backed SQLite database is seeded, resolved through the real short-session persistence adapter and loads the correct path/offset into FakePlayer. |
+| Reference-Dell live Channel 001 proof | PARTIAL | Exact isolated database/socket/manifest instructions are documented; mid-programme tune, live boundary advancement and runtime restart/rejoin have not yet been executed on the Dell. |
+| Correct mid-programme tune offset | PARTIAL | Exact application runtime load/offset tests pass; the combined real Channel 001 proof remains pending on the Dell. |
+| Restart/rejoin behaviour | PARTIAL | Fresh-runtime FakeClock tests prove no persisted cursor is needed; real proof-runtime restart/rejoin remains pending on the Dell. |
+| Suspend/live re-sync path | PARTIAL | Forced same-entry and crossed-boundary resynchronisation pass with simulated lost time. Actual suspend hooks are deliberately not implemented; Dell proof remains. |
 | Input abstraction proof | BLOCKED | Not yet implemented. |
 | Missing/corrupt media handling | BLOCKED | Not yet implemented. |
 | Player failure handling | BLOCKED | Not yet implemented. |
@@ -104,6 +107,79 @@ the exclusive HDMI device, not a Task 2.4 adapter failure and not the production
 The approved production architecture uses one separately supervised persistent MPV instance. This
 evidence does not claim that two concurrent MPV processes can share HDMI audio. Phase 2 remains in
 progress because later Phase 2 tasks and the one-channel runtime proof are still outstanding.
+
+### Task 2.5 automated evidence
+
+The Windows Python 3.13 development suite passes 161 tests with the existing AF_UNIX integration
+test skipped because that environment does not expose AF_UNIX. The 31 new passing tests cover
+initial tune at start/mid-entry, exact microsecond boundaries, same-entry no-load ticks, successive
+boundary loads, fresh-runtime restart/rejoin, forced resync within/across entries, unavailable
+timeline/media/coverage, observable typed player failure, exact snapshots, structured JSON log
+context, explicit CLI targets/in-memory rejection/once/Ctrl+C behavior, channel-number lookup,
+Alembic-migrated file-backed SQLite through the real persistence adapter into FakePlayer, inactive
+and active `/runtime` responses, route layering and unchanged `/health` behavior. Ruff lint/format
+and strict mypy pass. No automated Task 2.5 test requires MPV or real-time sleeping.
+
+### Task 2.5 isolated reference-Dell validation (pending)
+
+Do not mark the live Channel 001 proof PASS until this procedure is executed and results recorded.
+It uses only isolated resources:
+
+```text
+Database: /tmp/nostalgiabox-phase25.db
+Manifest: /tmp/nostalgiabox-phase25.json
+MPV socket: /tmp/nostalgiabox-phase25-mpv.sock
+```
+
+1. Check out the reviewed Task 2.5 branch on the Dell and install the backend development package.
+   Do not alter `/opt/nostalgiabox/launch.sh`, autologin, X startup, boot configuration, the
+   production database or `/run/nostalgiabox/mpv.sock`.
+2. Migrate only the temporary proof database:
+
+   ```bash
+   NOSTALGIABOX_DATABASE_URL=sqlite:////tmp/nostalgiabox-phase25.db alembic upgrade head
+   ```
+
+3. Create `/tmp/nostalgiabox-phase25.json` outside Git. Use Channel 001, at least three logical
+   entries of 20–30 seconds, a UTC start chosen so execution begins part-way through entry A, and
+   operator-owned media paths. Multiple logical items may point at the same physical test video.
+4. Seed only that explicit temporary target:
+
+   ```bash
+   nostalgiabox-seed \
+     --database-url sqlite:////tmp/nostalgiabox-phase25.db \
+     --manifest /tmp/nostalgiabox-phase25.json
+   ```
+
+5. In the `nostalgia` user's active X session, start one isolated proof MPV. Because the Phase 1 MPV
+   owns HDMI audio, `--no-audio` is allowed and does not reopen Task 2.4 audio acceptance:
+
+   ```bash
+   DISPLAY=:0 mpv \
+     --idle=yes --force-window=yes --keep-open=yes \
+     --input-ipc-server=/tmp/nostalgiabox-phase25-mpv.sock \
+     --fs --no-border --hwdec=vaapi --no-audio
+   ```
+
+6. Run continuous proof mode:
+
+   ```bash
+   nostalgiabox-channel-proof \
+     --database-url sqlite:////tmp/nostalgiabox-phase25.db \
+     --socket /tmp/nostalgiabox-phase25-mpv.sock \
+     --channel-number 1 \
+     --poll-seconds 0.5
+   ```
+
+7. Confirm the initial load selects entry A at the logged non-zero wall-clock offset. Leave it
+   running through a short boundary and confirm exactly one load of entry B at its current near-zero
+   offset. Stop only the proof runtime with Ctrl+C, wait several seconds, restart the same command,
+   and confirm it recomputes the current entry/offset instead of resuming remembered player state.
+8. Forced resync after simulated lost time/suspend is covered automatically with FakeClock. Task 2.5
+   intentionally provides no system suspend hook or additional manual control endpoint.
+
+Record timestamps, selected entry IDs, target offsets and visible playback results. Task 2.5 remains
+PARTIAL on reference hardware until this session is completed.
 
 ## Unit-test requirements
 

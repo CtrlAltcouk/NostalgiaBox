@@ -6,6 +6,18 @@ import logging.config
 from datetime import UTC, datetime
 from typing import Any
 
+_STRUCTURED_FIELDS = (
+    "action",
+    "channel_id",
+    "timeline_entry_id",
+    "media_item_id",
+    "now_utc",
+    "entry_start_utc",
+    "entry_end_utc",
+    "target_live_offset",
+    "target_live_offset_us",
+)
+
 
 class JsonFormatter(logging.Formatter):
     """Serialize standard log records as one JSON object per line."""
@@ -19,6 +31,9 @@ class JsonFormatter(logging.Formatter):
         }
         if record.exc_info is not None:
             payload["exception"] = self.formatException(record.exc_info)
+        for field in _STRUCTURED_FIELDS:
+            if hasattr(record, field):
+                payload[field] = getattr(record, field)
         return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
 
 

@@ -170,3 +170,24 @@ The command proves health, loads at a non-zero position, queries state/position,
 seeks absolutely and stops. It prompts between visible checks, never reads or modifies the
 NostalgiaBox database, and does not launch or terminate MPV. The equivalent source-tree command is
 `python -m nostalgiabox.playback.validate` with the same required arguments.
+
+## Run the one-channel proof
+
+Task 2.5 attaches to an already-migrated, explicitly seeded SQLite database and an already-running
+MPV socket. It never migrates, seeds or launches MPV. A single resolve/load operation is:
+
+```bash
+nostalgiabox-channel-proof \
+  --database-url sqlite:////tmp/nostalgiabox-phase25.db \
+  --socket /tmp/nostalgiabox-phase25-mpv.sock \
+  --channel-number 1 \
+  --once
+```
+
+For continuous boundary observation, omit `--once` and optionally set `--poll-seconds 0.5`.
+Same-entry polls do not reload MPV. Ctrl+C stops the loop and closes the player connection cleanly.
+In-memory databases are rejected, and neither the production database nor production MPV socket is
+used as a default. `GET /runtime` exposes the latest snapshot only when the API was explicitly
+composed with a runtime-state provider; otherwise it returns `{"active":false,"snapshot":null}`.
+
+The complete isolated reference-Dell validation procedure is recorded in Phase 2 `TESTING.md`.
