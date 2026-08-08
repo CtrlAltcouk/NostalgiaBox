@@ -6,7 +6,6 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from pytest import MonkeyPatch
-from tests.unit.domain.fakes import FakeClock
 
 from nostalgiabox.application.runtime import ChannelRuntime
 from nostalgiabox.config.settings import Settings
@@ -18,6 +17,8 @@ from nostalgiabox.persistence.runtime_sources import (
 from nostalgiabox.playback.fake import FakePlayer
 from nostalgiabox.seed.manifest import SeedManifest
 from nostalgiabox.seed.service import seed_manifest
+
+from ..support.clock import FakeClock
 
 _BACKEND_ROOT = Path(__file__).parents[2]
 

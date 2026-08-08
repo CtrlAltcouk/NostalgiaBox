@@ -20,7 +20,8 @@ from nostalgiabox.config.logging import JsonFormatter
 from nostalgiabox.domain.models import Channel, ChannelId, MediaItem, MediaItemId
 from nostalgiabox.domain.timeline import ChannelTimeline, build_sequential_timeline
 from nostalgiabox.playback.fake import FakePlayer
-from tests.unit.domain.fakes import FakeClock
+
+from ...support.clock import FakeClock
 
 START = datetime(2026, 8, 8, 12, 0, tzinfo=UTC)
 

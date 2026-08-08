@@ -21,7 +21,8 @@ from nostalgiabox.proof.cli import (
 )
 from nostalgiabox.seed.manifest import SeedManifest
 from nostalgiabox.seed.service import seed_manifest
-from tests.unit.domain.fakes import FakeClock
+
+from ...support.clock import FakeClock
 
 
 class TimelineSource:
