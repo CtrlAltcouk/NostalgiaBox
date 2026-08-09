@@ -21,6 +21,7 @@ This directory is the project's source of truth for requirements, architecture, 
 
 - [`01_Project/PRODUCT_REQUIREMENTS.md`](01_Project/PRODUCT_REQUIREMENTS.md) — agreed product behaviour and version-one scope
 - [`01_Project/DETAILED_DELIVERY_PLAN.md`](01_Project/DETAILED_DELIVERY_PLAN.md) — phased tasks, tests, outputs and exit criteria
+- [`01_Project/Phases/Phase_02/TRACEABILITY.md`](01_Project/Phases/Phase_02/TRACEABILITY.md) — final Phase 2 requirement-to-evidence audit and Phase 3 handoff
 - [`../ROADMAP.md`](../ROADMAP.md) — concise delivery sequence
 
 ## Documentation rules

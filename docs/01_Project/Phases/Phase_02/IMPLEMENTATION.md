@@ -238,6 +238,14 @@ Run the complete Phase 2 test matrix, reconcile documentation with the actual im
 - any new risks or follow-up issues;
 - Phase 2 completion update in the roadmap.
 
+### Closure result
+
+**Complete — 2026-08-09.** Task 2.7 added a focused migrated seed-to-runtime integration proof,
+explicit architecture/dependency checks and a complete requirement-to-evidence audit. The final
+Windows run passed 200 tests with one expected AF_UNIX skip, Ruff lint/format, strict mypy over 80
+source files and the full temporary SQLite migration lifecycle. No production code or dependency
+was changed. See [`TRACEABILITY.md`](TRACEABILITY.md) and [`TESTING.md`](TESTING.md).
+
 ## Implementation rules for Codex tasks
 
 - Read the repository and relevant ADRs before changing code.
@@ -252,4 +260,7 @@ Run the complete Phase 2 test matrix, reconcile documentation with the actual im
 
 ## Phase 2 completion gate
 
-Implementation work can only be considered complete when the proof runs on the real Dell reference appliance, not only in automated tests or a developer workstation.
+**Satisfied — 2026-08-09.** Tasks 2.1 through 2.6 supplied the documented reference-Dell evidence;
+Task 2.7 reconciled that evidence with every requirement and added platform-neutral closure tests.
+The remaining Task 2.7 Dell commands in `TESTING.md` are an unclaimed final regression rerun, not a
+missing hardware capability proof.

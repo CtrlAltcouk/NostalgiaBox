@@ -25,12 +25,24 @@
 | Reference-Dell live Channel 001 proof | PASS | The isolated live runtime loaded persisted Channel 001, joined mid-programme at the calculated offset, advanced automatically across boundaries, rejoined correctly after a fresh-process restart and continued boundary operation afterward. |
 | Correct mid-programme tune offset | PASS | Automated exact-offset coverage and the reference-Dell live MPV proof both passed; observed initial tune joined approximately 26.03 seconds into the scheduled programme. |
 | Restart/rejoin behaviour | PASS | A new proof process ignored prior player position, recalculated wall-clock truth and joined Programme 07 approximately 1.593 seconds after its scheduled start. |
-| Suspend/live re-sync path | PARTIAL | Forced same-entry and crossed-boundary resynchronisation pass with simulated lost time. Actual system suspend/resume hooks are deliberately outside Task 2.5 and remain unimplemented. |
+| Suspend/live re-sync path | PASS | Forced same-entry and crossed-boundary resynchronisation pass with simulated lost time and the final migrated cross-layer proof. `ChannelRuntime.resynchronise()` is the explicit operation required by Phase 2. Automatic OS resume-event wiring remains approved later production-service integration, not a Phase 2 requirement. |
 | Automated Task 2.6 input/failure proof | PASS | Logical input/profile translation, press-only semantics, application PLAY_PAUSE dispatch, structured MPV load completion, typed failures, same-entry media suppression and bounded player recovery pass deterministically without Linux input hardware or MPV. |
 | Reference-Dell input abstraction proof | PASS | Nordic 1915:1025 Consumer Control `KEY_PLAYPAUSE` produced exactly one logical `play_pause` action per press; release did not duplicate it. The same physical control visibly paused/resumed isolated real MPV through the complete logical abstraction. |
 | Missing/corrupt media handling | PASS | Isolated missing-path and corrupt-file loads became typed `PlayerMediaLoadError`/`media_load` failures with structured context, no crash, skip, database mutation, fabricated offset or tight retry loop. |
 | Player failure handling | PASS | Isolated MPV loss produced distinct `PlayerUnavailableError` failures at approximately five-second cadence. Independent MPV restart triggered wall-clock resynchronisation at fresh offsets within the same entry and after crossing a boundary. |
-| Timezone/DST tests | PARTIAL | Task 2.2 UTC resolution passed representative `Europe/London` spring-forward and autumn-fold cases. Local schedule authoring and full Phase 2 integration evidence remain. |
+| Timezone/DST tests | PASS | Unit tests cover aware UTC/non-UTC normalization and representative `Europe/London` spring-forward and both autumn-fold instants. Task 2.7 proves those instants through an Alembic-migrated SQLite repository and the runtime. Local schedule-authoring UX remains later scope. |
+| Task 2.7 final integration and architecture audit | PASS | Nine closure tests cover migrated seed-to-runtime behavior, half-open boundaries, restart/resync truth, controlled failures, DST persistence/runtime behavior, dependency direction, importability and raw-key ownership. The final traceability audit contains no `PARTIAL` or `FAIL` Phase 2 requirement. |
+
+### Task 2.7 final automated evidence
+
+The Windows Python 3.13.15 closure run collected 201 tests: 200 passed and the existing real
+AF_UNIX transport integration test was skipped because the Windows development environment does
+not expose that transport. Ruff lint and format checks passed, and strict mypy passed across 80
+source files. The temporary-database migration lifecycle passed initial upgrade, repeated upgrade,
+downgrade to base and re-upgrade to revision `20260808_0001 (head)`.
+
+The final requirement-to-evidence decision, approved deferrals and Phase 3 boundary are recorded in
+[`TRACEABILITY.md`](TRACEABILITY.md).
 
 ### Task 2.2 automated evidence
 
@@ -205,8 +217,8 @@ Programme 08 visibly loaded approximately 0.110 seconds after its scheduled star
 the automated same-entry no-reload and forced-resync tests, this proves persisted Channel 001
 loading, real wall-clock resolution, exact live offsets, Player-to-MPV JSON IPC execution,
 boundary-only advancement and fresh-process wall-clock rejoin. Actual system suspend/resume
-integration remains outside Task 2.5. Phase 2 remains in progress because later planned tasks have
-not been completed.
+integration was outside Task 2.5; the explicit re-sync capability and later OS-hook boundary are
+resolved by the final Phase 2 audit.
 
 ### Task 2.6 automated evidence
 
@@ -353,7 +365,7 @@ live_offset_us:  50389707
 
 The recovered offset was approximately 50.390 seconds into the same scheduled entry. Both recovery
 cases recalculated current schedule truth and a fresh live offset; neither used a stale playback
-cursor. Task 2.6 is complete, but Phase 2 remains in progress and Task 2.7 has not begun.
+cursor. This Task 2.6 evidence is part of the Phase 2 closure accepted by Task 2.7.
 
 ## Unit-test requirements
 
@@ -500,14 +512,16 @@ If Phase 2 exposes proof endpoints:
 
 ## Reference-appliance acceptance session
 
-Before Phase 2 closes, run a documented session on the Dell OptiPlex 7050 that includes:
+The documented Dell OptiPlex 7050 evidence accumulated during Tasks 2.1 through 2.6 includes:
 
 1. cold/restart into the Phase 2 runtime;
 2. Channel 001 tune at a known mid-programme time;
 3. confirm displayed/observed file and target seek offset;
 4. wait through a programme boundary;
 5. restart the core and confirm live rejoin;
-6. suspend long enough for expected channel position to advance, wake and trigger re-sync;
+6. Phase 1 appliance suspend/resume plus Phase 2 same-entry and crossed-boundary live
+   resynchronisation; automatic OS resume-event wiring is deferred to the production runtime
+   service;
 7. terminate MPV and confirm documented recovery behaviour;
 8. run at least one missing/unplayable-media case;
 9. verify keyboard/reference remote input reaches the logical-action layer.
@@ -523,3 +537,28 @@ Phase 2 may close only when:
 - no UI layer duplicates the authoritative real-time calculation;
 - unresolved issues are explicitly assessed as non-blocking for Phase 3;
 - documentation is updated with measured evidence and final service boundaries.
+
+All exit-review conditions are satisfied as of 2026-08-09. Phase 2 is complete. No new production
+behavior was introduced by Task 2.7.
+
+### Remaining reference-Dell regression commands
+
+The final Task 2.7 branch has not itself been rerun on the Dell. After review, run these commands
+from the repository checkout; they confirm the documentation/test-only closure delta without
+inventing new hardware evidence:
+
+```bash
+git switch codex/phase-2.7-phase-closure
+git pull --ff-only origin codex/phase-2.7-phase-closure
+cd backend
+python3.13 -m pip install -e '.[dev,linux-input]'
+python3.13 -m pytest
+python3.13 -m pytest tests/integration/test_phase2_closure.py tests/unit/test_architecture.py
+python3.13 -m ruff check .
+python3.13 -m ruff format --check .
+python3.13 -m mypy
+```
+
+No additional destructive, media, remote-input or real-MPV scenario is required: those hardware
+behaviors were already validated in Tasks 2.4 through 2.6. These commands remain an unclaimed final
+Debian regression confirmation, not an unresolved Phase 2 capability gap.
