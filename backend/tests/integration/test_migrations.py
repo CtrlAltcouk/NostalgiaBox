@@ -36,6 +36,7 @@ def test_initial_migration_upgrade_repeat_downgrade_and_reupgrade(
     command.upgrade(config, "head")
     assert _table_names(database_url) == _TABLES
     assert _current_revision(database_url) == "20260809_0002"
+    _assert_catalogue_foundation_schema(database_url)
 
     command.downgrade(config, "base")
     assert _table_names(database_url) == {"alembic_version"}
@@ -57,5 +58,33 @@ def _current_revision(database_url: str) -> str | None:
     try:
         with engine.connect() as connection:
             return MigrationContext.configure(connection).get_current_revision()
+    finally:
+        engine.dispose()
+
+
+def _assert_catalogue_foundation_schema(database_url: str) -> None:
+    engine = create_engine(Settings(environment="test", database_url=database_url))
+    try:
+        inspector = inspect(engine)
+        locator_indexes = {
+            index["name"]: (tuple(index["column_names"]), index["unique"])
+            for index in inspector.get_indexes("media_files")
+        }
+        assert locator_indexes["ix_media_files_source_locator"] == (
+            ("source_id", "normalized_relative_locator"),
+            0,
+        )
+        assert inspector.get_unique_constraints("media_files") == []
+        assert {
+            constraint["name"] for constraint in inspector.get_check_constraints("media_files")
+        } == {
+            "ck_media_files_id_nonblank",
+            "ck_media_files_normalized_locator_nonblank",
+            "ck_media_files_original_locator_nonblank",
+        }
+        assert "ck_renditions_id_nonblank" in {
+            constraint["name"]
+            for constraint in inspector.get_check_constraints("playable_renditions")
+        }
     finally:
         engine.dispose()

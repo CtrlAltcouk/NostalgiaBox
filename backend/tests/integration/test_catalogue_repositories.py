@@ -3,7 +3,7 @@
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import Engine, text
+from sqlalchemy import Engine, inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -111,6 +111,89 @@ def test_adjacent_multi_episode_renditions_share_one_file(
     persistence_session.flush()
 
     assert repository.get_by_id(PlayableRenditionId("episode-2")) is not None
+
+
+def test_distinct_historical_file_ids_can_share_one_source_locator(
+    persistence_session: Session,
+) -> None:
+    _, source, first = _store_foundation(persistence_session)
+    second = MediaFile(
+        MediaFileId("file-2"),
+        source.id,
+        first.normalized_relative_locator,
+        first.original_relative_locator,
+    )
+    repository = SqlAlchemyMediaFileRepository(persistence_session)
+
+    repository.store(second)
+    persistence_session.flush()
+
+    assert first.id != second.id
+    assert repository.get_by_id(first.id) == first
+    assert repository.get_by_id(second.id) == second
+
+
+def test_media_file_foundation_does_not_invent_lifecycle_columns(
+    persistence_engine: Engine,
+) -> None:
+    columns = {column["name"] for column in inspect(persistence_engine).get_columns("media_files")}
+
+    assert columns == {
+        "id",
+        "source_id",
+        "normalized_relative_locator",
+        "original_relative_locator",
+    }
+
+
+@pytest.mark.parametrize(
+    ("identifier", "normalized_locator", "original_locator"),
+    [
+        (" ", "valid.mkv", "valid.mkv"),
+        ("file-2", " ", "valid.mkv"),
+        ("file-2", "valid.mkv", " "),
+    ],
+)
+def test_database_rejects_blank_media_file_identity_and_locators(
+    persistence_session: Session,
+    identifier: str,
+    normalized_locator: str,
+    original_locator: str,
+) -> None:
+    SqlAlchemyMediaSourceRepository(persistence_session).store(
+        MediaSource(MediaSourceId("source-1"), MediaSourceKind.LOCAL)
+    )
+    persistence_session.flush()
+
+    with pytest.raises(IntegrityError):
+        persistence_session.execute(
+            text(
+                "INSERT INTO media_files "
+                "(id, source_id, normalized_relative_locator, original_relative_locator) "
+                "VALUES (:id, 'source-1', :normalized, :original)"
+            ),
+            {
+                "id": identifier,
+                "normalized": normalized_locator,
+                "original": original_locator,
+            },
+        )
+
+
+def test_database_rejects_blank_playable_rendition_identity(
+    persistence_session: Session,
+) -> None:
+    _store_foundation(persistence_session)
+
+    with pytest.raises(IntegrityError):
+        persistence_session.execute(
+            text(
+                "INSERT INTO playable_renditions "
+                "(id, catalogue_item_id, media_file_id, segment_start_us, "
+                "segment_duration_us, logical_playable_duration_us, is_whole_file, preferred) "
+                "VALUES (' ', 'item-1', 'file-1', 0, 10, 10, 0, 0)"
+            )
+        )
 
 
 @pytest.mark.parametrize(

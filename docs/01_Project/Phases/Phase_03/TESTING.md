@@ -2,7 +2,7 @@
 
 ## Status
 
-**In progress — 2026-08-09.** Task 3.1 automated development validation passes: 243 tests passed on
+**In progress — 2026-08-09.** Task 3.1 automated development validation passes: 249 tests passed on
 Windows/Python 3.13 and the platform-gated AF_UNIX test was skipped. The Phase 2 201-test Debian
 baseline remains authoritative; Task 3.1's isolated reference-Dell regression is still pending.
 
@@ -28,6 +28,8 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Phase 2 regression | Complete backend suite, architecture tests, migration compatibility | Task 3.1 Debian full suite pending | PARTIAL |
 | Additive Phase 2 compatibility migration | Same-ID catalogue backfill; unchanged `media_items`, timeline FKs, runtime projection and lossless downgrade passed on disposable Windows DBs | Disposable Phase 2-shaped Dell DB pending | PARTIAL |
 | Catalogue item without rendition | Persist/query logical identity without creating a Phase 2 playable row | Not required | PASS |
+| Historical file identity at reused locator | Two stable `MediaFile` IDs may share one source/normalized locator; composite lookup index is non-unique; blank IDs/locators fail DB checks | Not required | PASS |
+| One active file per source/locator | Add transactional and database-backed active-only uniqueness after media-file lifecycle/state exists | Owned by future scanning/reconciliation lifecycle; not implemented in Task 3.1 | PLANNED |
 | Initial local scan | Temporary tree → migrated DB → file/catalogue projections | Dell temporary local folder | PLANNED |
 | Local allowed-root safety | Canonical containment, traversal/symlink/protected-root rejection and explicit expert-root allow-list | Dell approved-root permission smoke | PLANNED |
 | Unchanged incremental scan | IDs/revisions/probe calls unchanged | Measured no-op scan | PLANNED |

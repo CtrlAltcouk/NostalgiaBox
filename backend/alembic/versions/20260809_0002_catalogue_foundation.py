@@ -45,13 +45,23 @@ def upgrade() -> None:
         sa.Column("source_id", sa.String(), nullable=False),
         sa.Column("normalized_relative_locator", sa.String(), nullable=False),
         sa.Column("original_relative_locator", sa.String(), nullable=False),
+        sa.CheckConstraint("length(trim(id)) > 0", name="ck_media_files_id_nonblank"),
+        sa.CheckConstraint(
+            "length(trim(normalized_relative_locator)) > 0",
+            name="ck_media_files_normalized_locator_nonblank",
+        ),
+        sa.CheckConstraint(
+            "length(trim(original_relative_locator)) > 0",
+            name="ck_media_files_original_locator_nonblank",
+        ),
         sa.ForeignKeyConstraint(["source_id"], ["media_sources.id"], ondelete="RESTRICT"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint(
-            "source_id", "normalized_relative_locator", name="uq_media_files_source_locator"
-        ),
     )
-    op.create_index("ix_media_files_source", "media_files", ["source_id"])
+    op.create_index(
+        "ix_media_files_source_locator",
+        "media_files",
+        ["source_id", "normalized_relative_locator"],
+    )
     op.create_table(
         "playable_renditions",
         sa.Column("id", sa.String(), nullable=False),
@@ -62,6 +72,7 @@ def upgrade() -> None:
         sa.Column("logical_playable_duration_us", sa.Integer(), nullable=False),
         sa.Column("is_whole_file", sa.Boolean(), nullable=False),
         sa.Column("preferred", sa.Boolean(), nullable=False),
+        sa.CheckConstraint("length(trim(id)) > 0", name="ck_renditions_id_nonblank"),
         sa.CheckConstraint("segment_start_us >= 0", name="ck_renditions_start_nonnegative"),
         sa.CheckConstraint("segment_duration_us > 0", name="ck_renditions_duration_positive"),
         sa.CheckConstraint(
@@ -98,7 +109,7 @@ def downgrade() -> None:
     op.drop_index("ix_renditions_media_file", table_name="playable_renditions")
     op.drop_index("ix_renditions_catalogue_item", table_name="playable_renditions")
     op.drop_table("playable_renditions")
-    op.drop_index("ix_media_files_source", table_name="media_files")
+    op.drop_index("ix_media_files_source_locator", table_name="media_files")
     op.drop_table("media_files")
     op.drop_table("media_sources")
     op.drop_table("catalogue_items")

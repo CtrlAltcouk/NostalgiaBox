@@ -45,7 +45,7 @@ Rules for every task:
 #### Task 3.1 implementation evidence
 
 - **Development status:** `PARTIAL` pending reference-Dell validation. The Windows/Python 3.13
-  suite passes with 243 passed and the Linux-only AF_UNIX test skipped as expected.
+  suite passes with 249 passed and the Linux-only AF_UNIX test skipped as expected.
 - **Pure model:** immutable opaque IDs and minimum `CatalogueItem`, `MediaSource`, `MediaFile` and
   `PlayableRendition` values enforce source-relative locators and exact `timedelta` segment rules.
   One physical file may back adjacent non-overlapping renditions for several catalogue items.
@@ -54,9 +54,15 @@ Rules for every task:
   React and API layers do not calculate segment positions.
 - **Persistence:** revision `20260809_0002` adds only `catalogue_items`, `media_sources`,
   `media_files` and `playable_renditions`, with foreign keys, single-row checks, lookup indexes,
-  per-source locator uniqueness and a partial unique index allowing at most one preferred rendition
-  per catalogue item. Inter-row overlap is validated by the domain/repository because a SQLite
-  `CHECK` constraint cannot inspect other rows.
+  and a partial unique index allowing at most one preferred rendition per catalogue item. The
+  media-file locator lookup uses a non-unique composite index on source and normalized locator:
+  distinct historical `MediaFile` identities may therefore retain the same locator after content
+  replacement. Active-locator uniqueness is still required long-term, but Task 3.1 has no
+  media-file lifecycle/state predicate with which to express it correctly. The future scanning and
+  reconciliation lifecycle must add database-backed, transactional one-active-file uniqueness,
+  such as a reviewed SQLite partial unique index. Task 3.1 deliberately does not invent retirement
+  state. Inter-row rendition overlap is validated by the domain/repository because a SQLite `CHECK`
+  constraint cannot inspect other rows.
 - **Compatibility:** migration backfill copies each legacy `media_items.id` unchanged into
   `catalogue_items.id`; it does not alter legacy rows, paths, duration, timeline FKs or boundaries.
   The separate legacy projection resolver reads the existing same-ID `StoredMediaItem` path and

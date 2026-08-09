@@ -55,10 +55,20 @@ class MediaFileRecord(Base):
 
     __tablename__ = "media_files"
     __table_args__ = (
-        UniqueConstraint(
-            "source_id", "normalized_relative_locator", name="uq_media_files_source_locator"
+        CheckConstraint("length(trim(id)) > 0", name="ck_media_files_id_nonblank"),
+        CheckConstraint(
+            "length(trim(normalized_relative_locator)) > 0",
+            name="ck_media_files_normalized_locator_nonblank",
         ),
-        Index("ix_media_files_source", "source_id"),
+        CheckConstraint(
+            "length(trim(original_relative_locator)) > 0",
+            name="ck_media_files_original_locator_nonblank",
+        ),
+        Index(
+            "ix_media_files_source_locator",
+            "source_id",
+            "normalized_relative_locator",
+        ),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
@@ -74,6 +84,7 @@ class PlayableRenditionRecord(Base):
 
     __tablename__ = "playable_renditions"
     __table_args__ = (
+        CheckConstraint("length(trim(id)) > 0", name="ck_renditions_id_nonblank"),
         CheckConstraint("segment_start_us >= 0", name="ck_renditions_start_nonnegative"),
         CheckConstraint("segment_duration_us > 0", name="ck_renditions_duration_positive"),
         CheckConstraint("logical_playable_duration_us > 0", name="ck_renditions_logical_positive"),
