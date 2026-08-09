@@ -39,6 +39,10 @@ Select technologies and prove one continuously advancing real-time channel that 
 
 ## Phase 3 — Basic media library and administration web UI
 
+**Status: In progress — 2026-08-09.** Requirements, catalogue identity, source/scanner, SMB/NAS,
+metadata, API, WebUI, security and concurrency architecture are under review. Production Phase 3
+implementation has not started.
+
 Support internal storage and SMB/NAS sources first, scan and catalogue media, provide manual corrections, and expose essential setup through the web UI. USB, Plex and Jellyfin follow after the local catalogue is stable.
 
 **Exit:** media can be added, scanned, corrected and managed without using the Linux desktop or terminal.

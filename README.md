@@ -7,7 +7,8 @@ The project targets a dedicated living-room device rather than a general-purpose
 ## Project status
 
 Phase 2 core architecture and the one-channel real-time proof are complete as of 2026-08-09.
-Phase 3 is the next planned phase; it has not started.
+Phase 3 architecture and implementation planning is in progress; production implementation has not
+started.
 
 ## Initial hardware target
 
