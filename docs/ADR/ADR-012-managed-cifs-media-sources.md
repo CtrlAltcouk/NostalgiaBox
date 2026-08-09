@@ -3,6 +3,11 @@
 - **Status:** Proposed
 - **Date:** 2026-08-09
 
+Architectural review approves the managed OS CIFS direction. Status remains **Proposed** until Task
+3.6 finalizes and reviews the privileged-helper interface, input allow-list, mount options, systemd
+boundary, ownership/permissions and reconnect lifecycle. Externally pre-mounted paths remain an
+expert option.
+
 ## Context
 
 Phase 3 must let the administration WebUI configure SMB/NAS sources while the scanner, ffprobe and

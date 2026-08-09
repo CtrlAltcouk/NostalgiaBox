@@ -36,35 +36,91 @@ Neither scanning nor WebUI code enters the timeline or MPV packages.
 | --- | --- |
 | `MediaSource` | Generated immutable ID for one configured local root or managed SMB share; configuration and availability only. |
 | `MediaFile` | Generated immutable ID for an observed physical file; source-relative locator, observation signature, lifecycle and probe state. |
-| `CatalogueItem` | Stable logical programme identity consumed as Phase 2 `MediaItemId`; effective editorial title/kind independent of paths. |
+| `CatalogueItem` | Broader stable logical programme identity. Existing Phase 2 IDs are backfilled unchanged; new items may exist without a playable projection. |
+| `PlayableRendition` | File-to-catalogue association selecting a whole file or bounded segment, preferred state and explicit logical playable duration. |
 | `Series` / `Season` | Logical hierarchy; seasons belong to series and episodes link to a season. |
 | `Movie` / `Episode` | Typed detail attached to a catalogue item rather than separate playback identity. |
 | `TechnicalMetadata` | Versioned measured facts for one file; never editorial truth. |
-| `MediaMatch` | Provenanced many-to-many file-to-catalogue association, including preferred rendition and manual lock. |
+| `MediaMatch` | Provenanced matching decision/candidate, separate from the playable rendition and its segment bounds. |
 | `ScanRun` / `ScanIssue` | Durable execution/progress and sanitized per-source/per-file problems. |
 | `CatalogueOverride` | Explicit field-level editorial values; stored separately from derived values. |
 | `ArtworkReference` | Optional logical reference and rebuildable cache key; never an identity/playback dependency. |
 
-Many-to-many matching deliberately permits several encodes/locations for one programme and a
-confirmed multi-episode file. Most files will have one link. A resolver selects one available,
-compatible preferred rendition and returns a `StoredMediaItem`-equivalent path projection to the
-Phase 2 runtime. Playback never receives a path selected by React.
+Several encodes/locations may back one programme. A confirmed multi-episode file remains one
+`MediaFile` with multiple segment renditions rather than duplicated physical records. Most
+renditions cover one whole file. A resolver selects one available, compatible preferred rendition
+and returns a Phase 2-compatible playable projection. Playback never receives a path selected by
+React.
 
-### Evolution of Phase 2 media
+### Additive Phase 2 compatibility boundary
 
-The existing `media_items.id` is retained as the logical catalogue/playback identity. A new
-migration—not an edit to `20260808_0001`—evolves that table into the catalogue-item record, copies
-each legacy `path` into a physical file/source association, and preserves all timeline foreign-key
-values. During staged migration, a compatibility mapper continues to produce pure `MediaItem(id,
-title, duration)` and resolved `StoredMediaItem` values. File-specific probe duration lives with
-the file; the effective scheduling duration is selected explicitly from the preferred rendition
-until Phase 4 publishes immutable timeline intervals.
+Task 3.1 does **not** repurpose or replace `media_items(id, title, duration_us, path)`. It adds a
+separate `catalogue_items` table and backfills every existing Phase 2 media ID into it using the
+same ID. Existing `timeline_entries.media_item_id` foreign keys remain untouched, and the existing
+runtime/repositories continue to read `media_items` and `StoredMediaItem` throughout staged Phase 3
+delivery.
 
-No migration may silently reinterpret an existing arbitrary path as a network credential or delete
-a Phase 2 seed item. Legacy rows that cannot be assigned safely become reviewable legacy sources.
-Because the Phase 2 schema cannot represent every Phase 3 multi-location relationship, downgrade
-must either prove a lossless single-path projection or stop with explicit backup/recovery guidance;
-it must never silently choose a path and discard catalogue data.
+`media_items` is initially the playable compatibility projection of a catalogue item. New
+catalogue items may exist before any file is playable. Once a whole-file or segmented rendition is
+explicitly selected and validated, a compatible `MediaItem` projection uses that same stable ID,
+an explicit logical title/duration and a resolved path. The legacy `media_items.path` remains a
+documented fallback during rollout; no catalogue/scanner identity is derived from it.
+
+The first migration is additive and lossless: create new tables, backfill catalogue identities and
+leave Phase 2 rows/constraints/FKs intact. Its downgrade removes only the new Phase 3 foundation and
+does not require inspecting or rewriting Phase 2 paths. Later catalogue data needs ordinary backup
+guidance, but Task 3.1 has no data-dependent compatibility downgrade.
+
+The legacy path column may be retired only in a later reviewed migration after all playable rows
+have catalogue renditions, every runtime/playback lookup uses the resolver, Phase 2 compatibility
+and rollback windows are explicitly closed, timeline IDs remain stable, migration/reference tests
+pass, and no supported deployment still depends on the fallback.
+
+### Playable segment model
+
+A rendition stores `media_file_id`, `catalogue_item_id`, whether it covers the whole file,
+`segment_start_us`, `segment_duration_us` (with derived `segment_end_us`), preferred/availability
+state and the explicit logical playable duration. Invariants are:
+
+```text
+segment_start_us >= 0
+segment_duration_us > 0
+segment_end_us = segment_start_us + segment_duration_us
+segment_end_us <= measured physical duration when that fact is available
+logical playable duration > 0 and fits inside the segment
+```
+
+A normal movie/episode starts at zero and uses the complete validated physical/effective duration.
+For `S01E01-E02`, separate catalogue IDs reference non-overlapping ranges of the same `MediaFile`.
+Automatic split-point inference is not required in Phase 3; initial segment assignment may be a
+validated manual correction. Overlap between independently playable episode segments is rejected
+unless a future explicitly reviewed use case defines why it is valid.
+
+The playback-location resolver returns a value equivalent to:
+
+```text
+physical_path
+physical_start_offset = segment_start_us
+logical_playable_duration
+segment_end
+```
+
+The runtime converts a logical live offset to physical MPV position by adding the segment origin
+inside the application playback-resolution boundary. React and the timeline domain do not perform
+this calculation.
+
+### Duration and schedule-truth policy
+
+`TechnicalMetadata.duration` is a measured fact about one `MediaFile`. It never automatically
+updates `media_items.duration_us` or existing `TimelineEntry` boundaries. Changing preferred
+rendition/location likewise cannot rewrite historical/current schedule truth.
+
+Creating or replacing a playable projection explicitly validates logical duration against the
+selected whole-file/segment range. Incompatible multi-rendition durations, shortened files and
+segment discrepancies become Needs Attention issues until resolved. Catalogue matching, rendition
+selection and timeline publication are separate operations. Phase 4 owns the policy for using
+catalogue durations to generate future timeline entries; already-published absolute intervals stay
+immutable under Phase 2 rules.
 
 ## Stable identity policy
 
@@ -115,6 +171,23 @@ A failed availability check updates source diagnostics but does not run missing-
 Removing a source retires it and its file locators. Logical items and overrides remain. A later
 explicit purge must be blocked while timeline or other protected references exist.
 
+### Local source allowed roots
+
+Normal WebUI source creation selects folders only beneath deployment-approved media roots. The
+default appliance root is `/srv/nostalgiabox/media`; the configuration is an allow-list so future
+storage volumes can be added deliberately without permitting arbitrary browsing.
+
+Before storing or scanning, the local adapter joins the approved root and requested relative path,
+resolves the canonical/real path, and verifies it remains beneath the canonical approved root.
+Reject absolute/traversal input, symlink escapes and roots resolving into `/etc`, `/home`,
+`/var/lib/nostalgiabox`, secret/cache/runtime state or other protected system trees. Apply the same
+check during traversal to prevent a symlink introduced after configuration from escaping.
+
+Externally pre-mounted paths outside normal managed roots require explicit expert deployment
+allow-list configuration and are never enabled merely by typing an arbitrary WebUI path. Managed
+SMB paths remain confined to `/run/nostalgiabox/media/<source-id>` and are validated against the
+configured source ID.
+
 ### SMB recommendation
 
 Use OS-mounted CIFS shares managed through a narrow NostalgiaBox mount boundary. The scanner and MPV
@@ -151,8 +224,10 @@ in-process worker. Per-source mutual exclusion prevents overlapping scans. The w
 2. Worker marks `running`, snapshots scan generation/configuration, then checks availability.
 3. Traverse without a database transaction; normalize/validate paths and filter ignore rules.
 4. Compare observations in pages. Skip probe for unchanged signatures; probe new/changed files
-   outside transactions. Commit idempotent result batches (initial target 100 records, tunable).
-5. Rate-limit durable progress updates (for example once per second or batch).
+   outside transactions. Commit bounded, configurable idempotent batches. The default batch size is
+   selected from Task 3.3 reference-Dell measurements.
+5. Rate-limit durable progress updates using a configurable bounded cadence selected during
+   implementation validation.
 6. Only after complete enumeration, short final transaction marks previously known-but-unseen files
    missing and marks the run completed.
 7. On cancel/process/error, record cancelled/interrupted/failed; never execute missing reconciliation.
@@ -207,10 +282,11 @@ data. Rescan/reprobe may refresh candidates but cannot modify locked mappings or
 
 ## Artwork boundary
 
-The DB stores only reference type, ownership, provenance and cache key/status. Rebuildable files live
-under `/var/cache/nostalgiabox/artwork`; administrator-owned originals, if supported later, live in
-persistent data outside cache. A missing image returns a placeholder and issue, never a catalogue or
-playback failure. Phase 3 does not add cloud artwork providers.
+The DB stores only `ArtworkReference` ownership, provenance and cache key/status. Rebuildable files
+live under `/var/cache/nostalgiabox/artwork`. A missing image returns a placeholder and issue, never
+a catalogue or playback failure. Phase 3 does not add cloud artwork providers. Administrator-
+uploaded persistent originals are deferred unless a later reviewed requirement establishes a need;
+they are not a Phase 3 acceptance blocker.
 
 ## Proposed database design
 
@@ -220,20 +296,22 @@ Every schema change is a new Alembic revision.
 | Table | Important columns and constraints/indexes |
 | --- | --- |
 | `media_sources` | `id PK`, `kind`, unique normalized `name`, `root_config`, `enabled`, availability fields, `credential_ref`, last-check/successful-scan IDs/times, soft-retire time; index enabled/state. No secret value. |
-| `media_items` (evolved) | Existing `id PK`, effective title/duration compatibility fields, `item_kind`, lifecycle/revision timestamps; preserves timeline FK identity. |
+| `media_items` (unchanged compatibility table) | Existing `id`, `title`, `duration_us`, `path`; existing timeline FKs and Phase 2 runtime access remain intact in Task 3.1. |
+| `catalogue_items` | `id PK`, item kind, effective/derived editorial fields, lifecycle/revision timestamps. Existing media IDs are backfilled unchanged; rows need not yet be playable. |
 | `series` | `id PK`, title/sort title; normalized-title index. |
 | `seasons` | `id PK`, `series_id FK RESTRICT`, number/title; unique `(series_id, number)`. |
-| `movie_details` | `media_item_id PK/FK CASCADE`, year and optional editorial fields. |
-| `episode_details` | `media_item_id PK/FK CASCADE`, `season_id FK RESTRICT`, episode number/part; unique season numbering where known. |
+| `movie_details` | `catalogue_item_id PK/FK CASCADE`, year and optional editorial fields. |
+| `episode_details` | `catalogue_item_id PK/FK CASCADE`, `season_id FK RESTRICT`, episode number/part; unique season numbering where known. |
 | `media_files` | `id PK`, `source_id FK RESTRICT`, normalized/original relative path, size, mtime, optional device/inode and fingerprints, observation/probe/playability states, seen/missing/retired fields, revision; unique active `(source_id, normalized_relative_path)` and indexes on source/state/signature/fingerprint. |
 | `technical_metadata` | `media_file_id PK/FK CASCADE`, duration, containers/codecs, dimensions/frame-rate, probe version/time/signature. |
 | `media_streams` | `id PK`, `media_file_id FK CASCADE`, stream index/type/codec/language/channels/disposition; unique `(media_file_id, stream_index)`. |
-| `media_matches` | `media_file_id FK`, `media_item_id FK RESTRICT`, origin/confidence/locked/preferred/revision; composite PK and constraints for preferred association. |
-| `catalogue_overrides` | `media_item_id PK/FK CASCADE`, explicit nullable override fields, revision/update audit fields. |
+| `media_matches` | Provenanced candidate/accepted matching between file and catalogue item; origin/confidence/locked/revision, separate from playback bounds. |
+| `playable_renditions` | `catalogue_item_id FK RESTRICT`, `media_file_id FK RESTRICT`, whole-file flag, non-negative `segment_start_us`, positive `segment_duration_us`, explicit logical duration, preferred/status/revision; composite identity and indexes. Domain/service validation prevents invalid/out-of-bounds/accidentally overlapping segments. |
+| `catalogue_overrides` | `catalogue_item_id PK/FK CASCADE`, explicit nullable override fields, revision/update audit fields. |
 | `scan_runs` | `id PK`, `source_id FK RESTRICT`, kind/status/config generation/timestamps/progress counters/error code; indexes source/time/status and one-active-run enforcement in service plus DB-supported guard. |
 | `scan_issues` | `id PK`, `scan_id FK CASCADE`, optional file ID/path-safe reference, category/code/message/retryable/resolved time; index scan/category/resolution. |
 | `content_fingerprints` / `duplicate_candidates` | Algorithm/version/digest/strength and pair/group review status; indexes algorithm/digest without asserting equivalence from weak hashes. |
-| `artwork_references` | `id PK`, `media_item_id FK CASCADE`, kind/provenance/cache key/status; index item/kind. |
+| `artwork_references` | `id PK`, `catalogue_item_id FK CASCADE`, kind/provenance/cache key/status; index item/kind. |
 | `admin_users`, `admin_sessions` | Username, password hash parameters, session digest/expiry/revocation; no plaintext credentials/tokens. |
 
 Source root configuration should be normalized into typed columns/validated JSON only where source
@@ -286,16 +364,17 @@ src/test       API fixtures and browser helpers
 Routes: `/setup`, `/login`, `/`, `/sources`, `/sources/:id`, `/scans/:id`, `/library`,
 `/attention`, `/library/:id`, `/system`. Server state uses one query/cache layer; URL owns filters
 and pagination; forms own draft state. Components do not infer scan/match policy. Initial progress
-uses visibility-aware polling (approximately two seconds while active, backoff when idle/error) and
-ETag/updated timestamps; SSE/WebSocket is deferred until polling proves inadequate.
+uses visibility-aware configurable bounded polling with idle/error backoff and ETag/updated
+timestamps; the cadence and pagination limits are selected from implementation measurements.
+SSE/WebSocket is deferred until polling proves inadequate.
 
 ## Security architecture
 
 - Bind only configured local interfaces; validate trusted hosts and same-origin requests. Setup
   starts in a restricted unclaimed state.
 - A one-time random setup token is stored only as a digest, expires, is rate-limited and is destroyed
-  on successful administrator creation. The physical/local delivery mechanism is a required open
-  decision before Task 3.10; unauthenticated first-visitor takeover is not accepted.
+  on successful administrator creation. The physical/local delivery/reset mechanism is a required
+  open decision before Task 3.11 exits; unauthenticated first-visitor takeover is not accepted.
 - Hash passwords with Argon2id using versioned parameters. Store opaque random session tokens only
   as digests; cookies are HttpOnly, SameSite=Strict, narrowly scoped, rotated and time-limited.
   `Secure` is mandatory whenever HTTPS is configured; deployment documentation must not imply LAN
@@ -331,12 +410,12 @@ one issue per retained file. Logs include action, duration/counts and correlatio
 
 ## Open decisions for architectural review
 
-1. Approve ADR-012 managed CIFS mounts and the exact privileged-helper/systemd boundary.
-2. Approve ADR-013 authentication/secret-store direction and choose the user-safe physical delivery
-   of the first-run setup token before security implementation completes.
+1. ADR-012's managed CIFS direction is approved; Task 3.6 must finalize and review the privileged-
+   helper protocol, input allow-list, mount options, systemd boundary, permissions and reconnect
+   lifecycle before the ADR can become Accepted.
+2. ADR-013's authentication/secret direction is approved; Task 3.11 must finalize and review the
+   first-run delivery/reset mechanism and privileged secret-helper boundary before acceptance.
 3. Confirm initial extension allow-list and case-sensitivity behavior against the real internal/NAS
    libraries without using those libraries in automated tests.
 4. Benchmark quick-fingerprint sampling size, scan batch size, worker/probe concurrency, WAL/busy
    timeout and catalogue pagination limits on the Dell rather than freezing speculative numbers.
-5. Define whether administrator-uploaded artwork is persistent Phase 3 scope or only references/
-   cache; neither option may block catalogue acceptance.

@@ -20,21 +20,25 @@ Rules for every task:
 
 ### Task 3.1 — Catalogue domain, ports and schema foundation
 
-- **Objective:** Establish source/file/catalogue identity, lifecycle values, typed repository ports
-  and migration-compatible Phase 2 evolution (`P3-CAT`, schema portions of `P3-CON`).
-- **Components:** new pure catalogue domain package; application catalogue ports; SQLAlchemy records,
-  mappers and repositories; Alembic revision; compatibility adapter for `MediaItem` and
-  `StoredMediaItem`.
-- **Migration:** create source/file/catalogue-support tables; evolve/copy legacy `media_items` while
-  preserving IDs and timeline FKs. Downgrade restores the Phase 2 shape only when every item has an
-  unambiguous representable path; otherwise it must fail with recovery guidance rather than
-  silently discard multi-location/catalogue data.
-- **Automated tests:** invariants, identity/path separation, mapper/repository round trips, FK/delete
-  restrictions, legacy-data migration upgrade/downgrade/re-upgrade, Phase 2 runtime regression.
+- **Objective:** Establish only the additive catalogue identity and playable-rendition foundation
+  (`P3-CAT`, schema portions of `P3-CON`) without beginning discovery or product behavior.
+- **Components:** pure catalogue/source/file/rendition/segment values and invariants; application
+  repository and playable-projection ports; additive SQLAlchemy records/repositories; one new
+  Alembic revision; compatibility adapter preserving existing `MediaItem`/`StoredMediaItem` reads.
+- **Migration:** create `catalogue_items`, source/file and rendition/segment foundation tables;
+  backfill every existing `media_items.id` into `catalogue_items` with the same ID. Do not alter or
+  repurpose `media_items(id,title,duration_us,path)` or its timeline FKs. Downgrade drops only the
+  additive Task 3.1 tables and leaves the Phase 2 schema/data intact.
+- **Automated tests:** pure identity/segment invariants; whole-file and bounded segment projection;
+  unplayable catalogue item; same-ID backfill; additive empty/Phase-2 upgrade/current/repeat/
+  downgrade/re-upgrade; mapper/repository/FK behavior; compatibility projection and full Phase 2
+  runtime regression; architecture/dependency rules.
 - **Dell validation:** migrate a disposable copy/temporary DB under Python 3.13; never production DB.
-- **Risks:** SQLite table recreation and legacy arbitrary paths. Require a pre-migration backup plan
-  and explicit legacy-source classification.
-- **Exit:** stable logical and physical identities exist without changing Phase 2 runtime behavior.
+- **Risks:** accidentally treating legacy `path` as identity, changing duration/path semantics, or
+  coupling segment resolution into timeline/player/UI layers.
+- **Exit:** additive identities/renditions exist, all Phase 2 IDs/runtime behavior remain intact,
+  and no scanning, ffprobe, fingerprinting, SMB mount, matching parser, WebUI, authentication or
+  Phase 4 timeline-generation behavior has been introduced.
 
 ### Task 3.2 — Local source lifecycle and availability
 
@@ -43,8 +47,9 @@ Rules for every task:
 - **Components:** source commands/queries and policies; local `SourceGateway`; source repository;
   sanitized failure mapping. No API routes yet beyond task-local tests unless separately approved.
 - **Migration:** only narrowly necessary source status/index refinements after 3.1.
-- **Automated tests:** path normalization/traversal, readable/missing/permission roots, state
-  transitions, disable/retire semantics, no secret/path leakage, transaction conflicts.
+- **Automated tests:** approved-root canonicalization, traversal and symlink escape, protected-root
+  rejection, explicit expert roots, readable/missing/permission roots, state transitions, disable/
+  retire semantics, no secret/path leakage and transaction conflicts.
 - **Dell validation:** isolated temporary internal folder owned by the test operator.
 - **Risks:** symlink escape, case sensitivity and path disclosure.
 - **Exit:** local sources have stable identity and controlled availability with no file discovery.
@@ -93,8 +98,9 @@ Rules for every task:
 
 ### Task 3.6 — Managed SMB/NAS source support
 
-- **Objective:** Implement approved ADR-012 source lifecycle using the narrow mount/credential
-  boundary (`P3-SRC`, SMB portions of `P3-SEC`).
+- **Objective:** Implement the approved direction of proposed ADR-012, finalize its review details,
+  and deliver source lifecycle through the narrow mount/credential boundary (`P3-SRC`, SMB portions
+  of `P3-SEC`).
 - **Components:** SMB source configuration/application service; mount and secret-store protocols;
   privileged helper/systemd integration as separately reviewed infrastructure; CIFS availability
   adapter. Scanner still consumes an ordinary mounted path.
@@ -115,9 +121,9 @@ Rules for every task:
   records and rebuildable cache/placeholder boundary without cloud providers.
 - **Migration:** series/seasons/details, match links and catalogue overrides if not already present.
 - **Automated tests:** common/ambiguous filename patterns, fallback titles, multiple renditions,
-  multi-episode manual mapping, precedence/clear behavior, correction across rescan/reprobe/rename/
-  offline source, concurrent edit conflict, and missing/failed artwork never blocking catalogue or
-  playback resolution.
+  validated manual multi-episode segment assignment without duplicating `MediaFile`, precedence/
+  clear behavior, correction across rescan/reprobe/rename/offline source, concurrent edit conflict,
+  and missing/failed artwork never blocking catalogue or playback resolution.
 - **Dell validation:** none beyond full regression; use synthetic filenames.
 - **Risks:** false confident matches and mixing technical/editorial data.
 - **Exit:** corrections persist and derived data can refresh without overwriting users.
@@ -164,8 +170,9 @@ Rules for every task:
 
 ### Task 3.11 — Authentication, secrets and concurrency hardening
 
-- **Objective:** Implement approved ADR-013, finalize setup-token delivery, enable validated SQLite
-  concurrency policy and exercise combined workloads (`P3-SEC`, `P3-CON`).
+- **Objective:** Implement the approved direction of proposed ADR-013, finalize its setup-token/
+  secret-helper review, enable validated SQLite concurrency policy and exercise combined workloads
+  (`P3-SEC`, `P3-CON`).
 - **Components:** admin/session services, password hashing, CSRF/Origin/Host/rate-limit middleware,
   secret-store/helper boundary, redaction, scan worker recovery, WAL/busy configuration.
 - **Migration:** admin users/sessions/audit data; no reversible secret material in DB.

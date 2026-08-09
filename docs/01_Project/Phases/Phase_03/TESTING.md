@@ -25,7 +25,10 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Area/scenario | Automated evidence required | Reference/manual evidence | Status |
 | --- | --- | --- | --- |
 | Phase 2 regression | Complete backend suite, architecture tests, migration compatibility | Debian full suite | PLANNED |
+| Additive Phase 2 compatibility migration | Same-ID catalogue backfill; unchanged `media_items`, timeline FKs, runtime projection and lossless downgrade | Disposable Phase 2-shaped Dell DB | PLANNED |
+| Catalogue item without rendition | Persist/query logical identity without creating a Phase 2 playable row | Not required | PLANNED |
 | Initial local scan | Temporary tree → migrated DB → file/catalogue projections | Dell temporary local folder | PLANNED |
+| Local allowed-root safety | Canonical containment, traversal/symlink/protected-root rejection and explicit expert-root allow-list | Dell approved-root permission smoke | PLANNED |
 | Unchanged incremental scan | IDs/revisions/probe calls unchanged | Measured no-op scan | PLANNED |
 | File addition | New file and metadata visible once | Local and NAS fixture | PLANNED |
 | File removal | Successful complete scan marks missing, never deletes logical item | Local fixture | PLANNED |
@@ -47,11 +50,15 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Clear correction | Latest derived value becomes effective | Browser flow | PLANNED |
 | Concurrent edit | Revision conflict, no lost update | Two browser sessions optional | PLANNED |
 | Multiple renditions | One logical item, deterministic available preferred file | Local/NAS copies | PLANNED |
+| Whole-file rendition | Zero origin and validated physical/logical duration | Known-duration fixture | PLANNED |
+| Multi-episode segments | One physical file, distinct catalogue IDs/ranges; invalid, zero, negative, out-of-bounds and accidental overlap rejected | Manual segment smoke with operator fixture | PLANNED |
+| Segment playback projection | Resolver returns path/origin/logical bound; physical seek equals origin plus logical offset outside React/timeline | FakePlayer integration | PLANNED |
+| Rendition duration discrepancy | Needs Attention issue; preferred rendition change does not mutate `MediaItem.duration` or existing timeline boundaries | Optional browser inspection | PLANNED |
 | Unavailable preferred rendition | Controlled alternate selection or explicit unavailable result per policy | NAS loss during lookup | PLANNED |
 | Playback while scanning | Runtime reads/MPV fake continue during batched writes | Real MPV playback during scan | PLANNED |
 | Concurrent WebUI reads | Bounded latency/no lock failures while scan writes | Desktop/phone browse during scan | PLANNED |
 | SQLite busy/retry bounds | Transient busy recovers; persistent busy fails safely | Dell WAL/busy benchmark | PLANNED |
-| Migration lifecycle | Empty and Phase-2 DB upgrade/current/repeat/downgrade/re-upgrade | Disposable Dell DB | PLANNED |
+| Migration lifecycle | Empty and Phase-2 DB additive upgrade/current/repeat/downgrade/re-upgrade with unchanged compatibility rows/FKs | Disposable Dell DB | PLANNED |
 | Source API | Validation, lifecycle, test, redaction, status codes | Live API smoke | PLANNED |
 | Scan API | 202/job ID, progress/history/issues, conflict/cancel | Live scan polling | PLANNED |
 | Catalogue API | Pagination/search/filter/detail/attention/corrections/ETag | Live browser use | PLANNED |
@@ -74,6 +81,8 @@ Maintain executable checks that:
 - application services depend on typed repository/source/probe/secret/worker ports only;
 - persistence imports no ffprobe/CIFS/MPV/UI code;
 - scanner does not import API routes, player or timeline implementation;
+- segment/rendition selection stays behind the application playback-location port and does not enter
+  React or the pure timeline domain;
 - ffprobe/CIFS adapters contain infrastructure syntax and return typed application values;
 - API routes contain no ORM session, traversal, mount, ffprobe or matching policy;
 - TypeScript client contracts match checked OpenAPI and contain no authoritative matching rules;

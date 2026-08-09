@@ -24,12 +24,13 @@ path—feeds playback, and timeline/playback code remains independent of scannin
 
 1. `P3-CAT-01` The catalogue must distinguish sources, physical files, logical catalogue items,
    technical metadata, matches and user overrides.
-2. `P3-CAT-02` Existing Phase 2 `MediaItem` IDs must remain valid stable logical identities for
-   timeline/playback references through migration.
+2. `P3-CAT-02` Phase 3 must add a separate `CatalogueItem` identity layer. Every existing Phase 2
+   `media_items.id` is backfilled to a catalogue item with the same ID, while `media_items` remains
+   the initially unchanged playable compatibility projection and timeline foreign keys remain
+   untouched.
 3. `P3-CAT-03` Absolute paths must never be catalogue identity. Source-relative paths are locators.
-4. `P3-CAT-04` A catalogue item may have zero, one or several file renditions/locations; a file may
-   be unmatched, linked to one item, or explicitly linked to several items where a multi-episode
-   file is confirmed.
+4. `P3-CAT-04` A catalogue item may have zero, one or several playable renditions; a physical file
+   may be unmatched or back several catalogue items without being duplicated in persistence.
 5. `P3-CAT-05` Identity must survive an unchanged rescan, a confidently detected rename/move,
    source reconnect and metadata correction.
 6. `P3-CAT-06` Ambiguous identity evidence must create a review issue rather than silently merge
@@ -38,6 +39,19 @@ path—feeds playback, and timeline/playback code remains independent of scannin
    locations; deduplication must not delete user media.
 8. `P3-CAT-08` Missing files, temporarily unavailable files, unsupported files and failed probes
    must remain distinguishable and inspectable.
+9. `P3-CAT-09` Every file-to-catalogue rendition must represent either the whole file or an explicit
+   segment with non-negative physical start and positive logical duration/end within the measured
+   file bounds where known. Independently playable episode segments must not overlap accidentally.
+10. `P3-CAT-10` The playback-location resolver returns physical path, segment origin and logical
+    playable duration/bounds. React and the timeline domain receive neither path-selection nor
+    segment arithmetic responsibilities.
+11. `P3-CAT-11` Existing Phase 2 `MediaItem.duration` and published timeline intervals remain stable.
+    Probe duration or preferred-rendition changes must not silently mutate current/historical
+    schedule truth; discrepancies become Needs Attention issues.
+12. `P3-CAT-12` A new catalogue item may exist without a playable projection. Creating a projection
+    must explicitly choose and validate logical duration, use the same stable catalogue ID, and
+    confirm that the selected whole-file/segment range can satisfy it. Phase 4 owns future timeline
+    publication from catalogue durations.
 
 ### P3-SRC — Media sources
 
@@ -53,6 +67,10 @@ path—feeds playback, and timeline/playback code remains independent of scannin
    a separate reviewed operation and must respect foreign keys.
 6. `P3-SRC-06` SMB credentials must never be returned by APIs, stored in ordinary catalogue rows,
    logged, committed to Git or passed in command arguments.
+7. `P3-SRC-07` Normal WebUI local sources must resolve canonically beneath approved media roots,
+   initially `/srv/nostalgiabox/media`. Traversal, symlink escape and implicit access to system or
+   application-state paths are rejected. Additional/external roots require explicit expert
+   deployment configuration; managed SMB mounts remain under `/run/nostalgiabox/media/<source-id>`.
 
 ### P3-SCAN — Discovery, probing and reconciliation
 
@@ -112,6 +130,8 @@ path—feeds playback, and timeline/playback code remains independent of scannin
 2. `P3-ART-02` Artwork cache files are rebuildable state outside Git and outside the database.
 3. `P3-ART-03` Missing or failed artwork must never block scanning, identity, timeline generation
    or playback.
+4. `P3-ART-04` Administrator-uploaded persistent artwork originals are deferred from Phase 3 unless
+   a later reviewed requirement demonstrates a need. Their absence is not a blocker.
 
 ### P3-API — Administration API
 
@@ -168,6 +188,9 @@ path—feeds playback, and timeline/playback code remains independent of scannin
    synchronous database work.
 5. `P3-CON-05` Progress publication must not turn every discovered file into an unbounded write or
    client update.
+6. `P3-CON-06` Fingerprint sampling, scan batch size, probe/worker concurrency, SQLite WAL/busy
+   settings and pagination limits remain bounded and configurable; implementation defaults require
+   reference-Dell measurement rather than speculative constants in this architecture.
 
 ## Failure categories
 

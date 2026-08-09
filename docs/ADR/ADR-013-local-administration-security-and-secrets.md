@@ -3,6 +3,11 @@
 - **Status:** Proposed
 - **Date:** 2026-08-09
 
+Architectural review approves the authentication and external-secret direction. Status remains
+**Proposed** until the safe first-run token delivery/reset mechanism and privileged secret-helper
+boundary are finalized and reviewed before Task 3.11 exits. These details do not block Tasks
+3.1–3.5.
+
 ## Context
 
 The Phase 3 WebUI controls sources and credentials on a household LAN. “Local network” is not an
