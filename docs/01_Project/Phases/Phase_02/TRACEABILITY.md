@@ -11,7 +11,13 @@ Evidence abbreviations:
 
 - **T2.7 integration:** `backend/tests/integration/test_phase2_closure.py`
 - **Architecture tests:** `backend/tests/unit/test_architecture.py`
-- **Dell evidence:** the measured Task 2.1–2.6 sessions in `TESTING.md`
+- **Dell evidence:** the measured Task 2.1–2.6 hardware sessions and Task 2.7 final Debian regression
+  in `TESTING.md`
+
+Final Task 2.7 reference-platform validation is `PASS`: Debian 13/Python 3.13.5 passed all 201 tests
+with no skips, the 9 closure tests independently, Linux AF_UNIX transport, Ruff lint/format and
+strict mypy across 80 source files. No additional manual hardware scenario was required, and no
+Phase 2 blocker remains.
 
 ## Scope and real-time channel behaviour
 

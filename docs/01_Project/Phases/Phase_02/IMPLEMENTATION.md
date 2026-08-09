@@ -241,10 +241,12 @@ Run the complete Phase 2 test matrix, reconcile documentation with the actual im
 ### Closure result
 
 **Complete — 2026-08-09.** Task 2.7 added a focused migrated seed-to-runtime integration proof,
-explicit architecture/dependency checks and a complete requirement-to-evidence audit. The final
-Windows run passed 200 tests with one expected AF_UNIX skip, Ruff lint/format, strict mypy over 80
-source files and the full temporary SQLite migration lifecycle. No production code or dependency
-was changed. See [`TRACEABILITY.md`](TRACEABILITY.md) and [`TESTING.md`](TESTING.md).
+explicit architecture/dependency checks and a complete requirement-to-evidence audit. Final
+reference-Dell validation on Debian 13/Python 3.13.5 passed all 201 tests with no skips, including
+AF_UNIX; the 9 Task 2.7 closure tests also passed independently. Ruff lint/format and strict mypy
+over 80 source files passed, as did the full temporary SQLite migration lifecycle. No production
+code or dependency was changed. See [`TRACEABILITY.md`](TRACEABILITY.md) and
+[`TESTING.md`](TESTING.md).
 
 ## Implementation rules for Codex tasks
 
@@ -261,6 +263,5 @@ was changed. See [`TRACEABILITY.md`](TRACEABILITY.md) and [`TESTING.md`](TESTING
 ## Phase 2 completion gate
 
 **Satisfied — 2026-08-09.** Tasks 2.1 through 2.6 supplied the documented reference-Dell evidence;
-Task 2.7 reconciled that evidence with every requirement and added platform-neutral closure tests.
-The remaining Task 2.7 Dell commands in `TESTING.md` are an unclaimed final regression rerun, not a
-missing hardware capability proof.
+Task 2.7 reconciled that evidence with every requirement, added platform-neutral closure tests and
+completed its final Debian reference-Dell regression. No Phase 2 blocker remains.

@@ -35,11 +35,18 @@
 
 ### Task 2.7 final automated evidence
 
-The Windows Python 3.13.15 closure run collected 201 tests: 200 passed and the existing real
-AF_UNIX transport integration test was skipped because the Windows development environment does
-not expose that transport. Ruff lint and format checks passed, and strict mypy passed across 80
-source files. The temporary-database migration lifecycle passed initial upgrade, repeated upgrade,
-downgrade to base and re-upgrade to revision `20260808_0001 (head)`.
+The Windows Python 3.13.15 development closure run collected 201 tests: 200 passed and the existing
+real AF_UNIX transport integration test was skipped because that environment does not expose the
+transport. Ruff lint and format checks passed, and strict mypy passed across 80 source files. The
+temporary-database migration lifecycle passed initial upgrade, repeated upgrade, downgrade to base
+and re-upgrade to revision `20260808_0001 (head)`.
+
+Final reference-Dell regression then passed on Debian 13 with Python 3.13.5. The full suite passed
+all **201 tests with no skips**, including the Linux AF_UNIX integration path. The Task 2.7 closure
+tests were also run independently and passed all **9 tests**. `ruff check .` passed,
+`ruff format --check .` passed with 82 files already formatted, and strict `mypy` passed with no
+issues across 80 source files. No additional manual hardware scenario was required by the Task 2.7
+audit; the measured Tasks 2.1 through 2.6 hardware evidence remains authoritative.
 
 The final requirement-to-evidence decision, approved deferrals and Phase 3 boundary are recorded in
 [`TRACEABILITY.md`](TRACEABILITY.md).
@@ -541,24 +548,10 @@ Phase 2 may close only when:
 All exit-review conditions are satisfied as of 2026-08-09. Phase 2 is complete. No new production
 behavior was introduced by Task 2.7.
 
-### Remaining reference-Dell regression commands
+### Final reference-Dell regression
 
-The final Task 2.7 branch has not itself been rerun on the Dell. After review, run these commands
-from the repository checkout; they confirm the documentation/test-only closure delta without
-inventing new hardware evidence:
-
-```bash
-git switch codex/phase-2.7-phase-closure
-git pull --ff-only origin codex/phase-2.7-phase-closure
-cd backend
-python3.13 -m pip install -e '.[dev,linux-input]'
-python3.13 -m pytest
-python3.13 -m pytest tests/integration/test_phase2_closure.py tests/unit/test_architecture.py
-python3.13 -m ruff check .
-python3.13 -m ruff format --check .
-python3.13 -m mypy
-```
-
-No additional destructive, media, remote-input or real-MPV scenario is required: those hardware
-behaviors were already validated in Tasks 2.4 through 2.6. These commands remain an unclaimed final
-Debian regression confirmation, not an unresolved Phase 2 capability gap.
+**PASS — 2026-08-09.** The final Task 2.7 branch passed the complete Debian 13/Python 3.13.5
+regression: 201 tests passed with no skips, the 9 closure tests passed independently, Linux AF_UNIX
+transport passed, Ruff lint/format passed, and strict mypy passed across 80 source files. No
+additional destructive, media, remote-input or real-MPV scenario was required because those
+hardware behaviors were already validated in Tasks 2.4 through 2.6. No Phase 2 blocker remains.
