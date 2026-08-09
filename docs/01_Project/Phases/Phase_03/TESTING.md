@@ -2,9 +2,9 @@
 
 ## Status
 
-**In progress — 2026-08-09.** Task 3.1 automated development validation passes: 249 tests passed on
-Windows/Python 3.13 and the platform-gated AF_UNIX test was skipped. The Phase 2 201-test Debian
-baseline remains authoritative; Task 3.1's isolated reference-Dell regression is still pending.
+**In progress — 2026-08-09.** Task 3.1 is `PASS`, including isolated reference-Dell acceptance.
+Debian 13/Python 3.13.5 passed all 250 tests with no skips, including the Linux AF_UNIX integration
+path. Later Phase 3 tasks and Phase 3 as a whole remain in progress.
 
 Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 `DEFERRED-BY-APPROVED-SCOPE`.
@@ -25,8 +25,8 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 
 | Area/scenario | Automated evidence required | Reference/manual evidence | Status |
 | --- | --- | --- | --- |
-| Phase 2 regression | Complete backend suite, architecture tests, migration compatibility | Task 3.1 Debian full suite pending | PARTIAL |
-| Additive Phase 2 compatibility migration | Same-ID catalogue backfill; unchanged `media_items`, timeline FKs, runtime projection and lossless downgrade passed on disposable Windows DBs | Disposable Phase 2-shaped Dell DB pending | PARTIAL |
+| Phase 2 regression | Complete backend suite, architecture tests, migration compatibility | Debian full suite: 250 passed, no skips, including AF_UNIX | PASS |
+| Additive Phase 2 compatibility migration | Same-ID catalogue backfill; unchanged `media_items`, timeline FKs, runtime projection and lossless downgrade | Disposable Phase 2-shaped Dell DB lifecycle passed | PASS |
 | Catalogue item without rendition | Persist/query logical identity without creating a Phase 2 playable row | Not required | PASS |
 | Historical file identity at reused locator | Two stable `MediaFile` IDs may share one source/normalized locator; composite lookup index is non-unique; blank IDs/locators fail DB checks | Not required | PASS |
 | One active file per source/locator | Add transactional and database-backed active-only uniqueness after media-file lifecycle/state exists | Owned by future scanning/reconciliation lifecycle; not implemented in Task 3.1 | PLANNED |
@@ -61,7 +61,7 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Playback while scanning | Runtime reads/MPV fake continue during batched writes | Real MPV playback during scan | PLANNED |
 | Concurrent WebUI reads | Bounded latency/no lock failures while scan writes | Desktop/phone browse during scan | PLANNED |
 | SQLite busy/retry bounds | Transient busy recovers; persistent busy fails safely | Dell WAL/busy benchmark | PLANNED |
-| Migration lifecycle | Empty and Phase-2 DB additive upgrade/current/repeat/downgrade/re-upgrade with unchanged compatibility rows/FKs pass on Windows | Disposable Dell DB pending | PARTIAL |
+| Migration lifecycle | Empty and Phase-2 DB additive upgrade/current/repeat/downgrade/re-upgrade with unchanged compatibility rows/FKs | Disposable Dell DB passed through `20260808_0001` and `20260809_0002` | PASS |
 | Source API | Validation, lifecycle, test, redaction, status codes | Live API smoke | PLANNED |
 | Scan API | 202/job ID, progress/history/issues, conflict/cancel | Live scan polling | PLANNED |
 | Catalogue API | Pagination/search/filter/detail/attention/corrections/ETag | Live browser use | PLANNED |
@@ -116,54 +116,31 @@ review rather than invented values.
 
 ## Reference-Dell/NAS acceptance sequence
 
-### Task 3.1 isolated reference-Dell procedure (pending)
+### Task 3.1 isolated reference-Dell evidence — PASS
 
-Run from an existing NostalgiaBox repository on Debian 13. These commands use a detached temporary
-worktree, an isolated virtual environment and disposable SQLite files. They do not address
-`/var/lib/nostalgiabox/nostalgiabox.db`, the production media library, MPV, boot/X/autologin or
-systemd configuration.
+Validation completed on Debian 13 with Python 3.13.5 using the temporary detached worktree
+`/tmp/nostalgiabox-task31`, an isolated virtual environment inside it and disposable SQLite data
+under `/tmp`.
 
-```bash
-set -euo pipefail
-git fetch origin
-test ! -e /tmp/nostalgiabox-task31
-git worktree add --detach /tmp/nostalgiabox-task31 \
-  origin/codex/phase-3.1-catalogue-foundation
-cd /tmp/nostalgiabox-task31/backend
-python3.13 -m venv .venv
-.venv/bin/python -m pip install -e '.[dev,linux-input]'
+- Full `pytest`: **250 passed, no skips**. The Linux AF_UNIX integration path ran and passed; the
+  full Phase 2 regression and Task 3.1 automated suite therefore pass on the reference appliance.
+- Focused `test_catalogue_migration.py` plus `test_catalogue_repositories.py`: **19 passed**. This
+  covers populated same-ID migration, exact Phase 2 media/timeline/FK preservation, repository and
+  compatibility projection behavior, multi-episode/shared-file representation, distinct historical
+  file IDs at one locator, absence of invented lifecycle state, SQLite integrity checks, rendition
+  conflict/preferred rules and FK deletion protection.
+- `ruff check .`: **PASS**.
+- `ruff format --check .`: **PASS**, 92 files already formatted.
+- `mypy`: **PASS**, no issues across 89 source files.
+- Explicit Alembic lifecycle on a completely disposable database: empty upgrade through
+  `20260808_0001` to `20260809_0002 (head)`, repeated head upgrade, downgrade to `20260808_0001`,
+  and re-upgrade to `20260809_0002 (head)` all passed.
 
-.venv/bin/python -m pytest
-.venv/bin/python -m ruff check .
-.venv/bin/python -m ruff format --check .
-.venv/bin/python -m mypy
-
-# Focused populated Phase 2 compatibility, same-ID, row-preservation and runtime proof.
-.venv/bin/python -m pytest -vv \
-  tests/integration/test_catalogue_migration.py \
-  tests/integration/test_catalogue_repositories.py
-
-# Explicit empty migration current/repeat/downgrade/re-upgrade lifecycle.
-validation_root="$(mktemp -d /tmp/nostalgiabox-task31-migration.XXXXXX)"
-trap 'rm -rf -- "$validation_root"' EXIT
-export NOSTALGIABOX_ENVIRONMENT=test
-export NOSTALGIABOX_DATABASE_URL="sqlite+pysqlite:///$validation_root/empty.db"
-.venv/bin/alembic upgrade head
-.venv/bin/alembic current
-.venv/bin/alembic upgrade head
-.venv/bin/alembic downgrade 20260808_0001
-.venv/bin/alembic current
-.venv/bin/alembic upgrade head
-.venv/bin/alembic current
-unset NOSTALGIABOX_DATABASE_URL NOSTALGIABOX_ENVIRONMENT
-
-cd -
-git worktree remove --force /tmp/nostalgiabox-task31
-```
-
-Record the Python version, full pytest total (including the Linux AF_UNIX result), Ruff and mypy
-totals, Alembic revision output, focused-test result and confirmation that cleanup completed. Do not
-mark Task 3.1 reference acceptance `PASS` until this procedure is physically executed on the Dell.
+The disposable database and temporary worktree were removed after validation. The production
+database and media library were not accessed, and MPV, boot/X, autologin and systemd configuration
+were not modified. This evidence accepts only Task 3.1. Active-file locator uniqueness, source
+lifecycle, scanning, ffprobe, fingerprints, reconciliation, SMB/NAS, matching, WebUI,
+authentication and Phase 4 scheduling integration remain later work.
 
 Use isolated temporary sources, a least-privilege test share/account and operator-owned test media:
 

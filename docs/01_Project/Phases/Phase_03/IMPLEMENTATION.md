@@ -2,11 +2,11 @@
 
 ## Status and delivery rules
 
-**Implementation in progress — 2026-08-09.** Task 3.1 is implemented on its review branch and its
-development validation passes; isolated reference-Dell validation remains pending. Later tasks and
-Phase 3 as a whole are not implemented or accepted. Each task requires its own branch, review,
-tests, migration lifecycle where applicable, documentation and proportionate reference-Dell
-evidence. Phase 2 tests and architecture remain mandatory regression coverage.
+**Implementation in progress — 2026-08-09.** Task 3.1 is implemented and accepted, including its
+isolated reference-Dell validation. Later tasks and Phase 3 as a whole are not implemented or
+accepted. Each task requires its own branch, review, tests, migration lifecycle where applicable,
+documentation and proportionate reference-Dell evidence. Phase 2 tests and architecture remain
+mandatory regression coverage.
 
 Rules for every task:
 
@@ -35,7 +35,8 @@ Rules for every task:
   unplayable catalogue item; same-ID backfill; additive empty/Phase-2 upgrade/current/repeat/
   downgrade/re-upgrade; mapper/repository/FK behavior; compatibility projection and full Phase 2
   runtime regression; architecture/dependency rules.
-- **Dell validation:** migrate a disposable copy/temporary DB under Python 3.13; never production DB.
+- **Dell validation:** `PASS` on Debian 13/Python 3.13.5 using a disposable database and temporary
+  worktree; the production database was not accessed.
 - **Risks:** accidentally treating legacy `path` as identity, changing duration/path semantics, or
   coupling segment resolution into timeline/player/UI layers.
 - **Exit:** additive identities/renditions exist, all Phase 2 IDs/runtime behavior remain intact,
@@ -44,8 +45,9 @@ Rules for every task:
 
 #### Task 3.1 implementation evidence
 
-- **Development status:** `PARTIAL` pending reference-Dell validation. The Windows/Python 3.13
-  suite passes with 249 passed and the Linux-only AF_UNIX test skipped as expected.
+- **Acceptance status:** `PASS`. Windows/Python 3.13 development validation passed with 249 tests
+  and the platform-gated AF_UNIX test skipped as expected. Reference Debian 13/Python 3.13.5
+  validation passed with all 250 tests and no skips, including AF_UNIX.
 - **Pure model:** immutable opaque IDs and minimum `CatalogueItem`, `MediaSource`, `MediaFile` and
   `PlayableRendition` values enforce source-relative locators and exact `timedelta` segment rules.
   One physical file may back adjacent non-overlapping renditions for several catalogue items.
@@ -71,6 +73,13 @@ Rules for every task:
 - **Migration proof:** automated empty and populated Phase 2 upgrade/repeat/downgrade/re-upgrade
   tests compare exact legacy row snapshots, exercise the Phase 2 runtime after upgrade, verify
   controlled foreign keys and prove a rejected invalid legacy ID creates no catalogue tables.
+- **Reference-Dell evidence:** the focused catalogue migration/repository suite passed all 19 tests.
+  An explicit disposable-database lifecycle passed empty upgrade to `20260809_0002`, repeated
+  upgrade, downgrade to `20260808_0001`, and re-upgrade to `20260809_0002`. Ruff lint and formatting
+  passed (92 files formatted), and strict mypy passed across 89 source files. Validation used the
+  temporary `/tmp/nostalgiabox-task31` worktree and isolated virtual environment; its database and
+  worktree were removed afterward. Production data, media, MPV, boot/X, autologin and systemd
+  configuration were not touched.
 - **Scope:** no scanning, filesystem traversal, ffprobe, fingerprint, source lifecycle, API, WebUI,
   authentication, WAL, worker or scheduling behavior was added. ADR-012 and ADR-013 remain
   `Proposed`.
