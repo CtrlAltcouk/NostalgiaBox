@@ -7,19 +7,21 @@ tooling, and an attach-only MPV JSON IPC player adapter.
 ## Requirements
 
 - Python 3.13
-- A supported C compiler is not expected to be necessary for the declared dependencies
+- Core/development dependencies do not require a C compiler. The optional `linux-input` extra may
+  build python-evdev's extension and therefore needs Debian build prerequisites.
 
 All commands below are run from `backend/`.
 
 ## Create a development environment
 
-On Debian 13:
+On Debian 13, include the optional Linux input adapter for Task 2.6 reference-hardware proof:
 
 ```bash
+sudo apt-get install --no-install-recommends build-essential python3-dev
 python3.13 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
-python -m pip install -e '.[dev]'
+python -m pip install -e '.[dev,linux-input]'
 ```
 
 On Windows PowerShell:
@@ -191,3 +193,28 @@ used as a default. `GET /runtime` exposes the latest snapshot only when the API 
 composed with a runtime-state provider; otherwise it returns `{"active":false,"snapshot":null}`.
 
 The complete isolated reference-Dell validation procedure is recorded in Phase 2 `TESTING.md`.
+
+## Run the remote input proof
+
+`evdev==1.9.3` is isolated in the optional `linux-input` extra and imported only by the Linux input
+adapter. Windows development continues to use `.[dev]`; automated tests inject fake input devices.
+Identify the Consumer Control interface by device metadata or a stable by-id link rather than an
+event number, then attach to an isolated, already-running MPV:
+
+```bash
+python -m evdev.evtest
+nostalgiabox-input-proof \
+  --device '/dev/input/by-id/<receiver-consumer-control-event-link>' \
+  --socket /tmp/nostalgiabox-phase26-mpv.sock
+```
+
+The Nordic 1915:1025 Consumer Control profile maps `KEY_PLAYPAUSE` to logical `PLAY_PAUSE`.
+Press/release/repeat produces one action on the press only. When MPV is playing it pauses; when
+paused it resumes; idle is reported as a deliberate no-op. The command does not launch or stop MPV,
+does not use a database and closes input/player resources on Ctrl+C.
+
+The continuous `nostalgiabox-channel-proof` command now records media/player failures and remains
+alive for controlled recovery. Known failed media is suppressed for the rest of the same timeline
+entry. Player health is retried at five-second cadence; restored health forces current wall-clock
+timeline resolution and a fresh live-offset load. Exact isolated missing/corrupt media and
+player-loss procedures are in Phase 2 `TESTING.md`.

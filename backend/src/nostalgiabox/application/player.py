@@ -38,6 +38,14 @@ class PlayerCommandError(PlayerError):
         super().__init__(f"player rejected {operation!r}: {player_error}")
 
 
+class PlayerMediaLoadError(PlayerError):
+    """The player was reachable but could not load the requested media."""
+
+    def __init__(self, player_error: str) -> None:
+        self.player_error = player_error
+        super().__init__(f"player could not load media: {player_error}")
+
+
 @runtime_checkable
 class Player(Protocol):
     """Infrastructure-agnostic player operations used by application orchestration."""

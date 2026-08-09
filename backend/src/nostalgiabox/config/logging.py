@@ -16,6 +16,11 @@ _STRUCTURED_FIELDS = (
     "entry_end_utc",
     "target_live_offset",
     "target_live_offset_us",
+    "logical_input_action",
+    "input_profile",
+    "input_outcome",
+    "failure_category",
+    "player_failure_type",
 )
 
 

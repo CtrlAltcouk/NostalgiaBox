@@ -14,7 +14,9 @@ from nostalgiabox.application.player import Player, PlayerError
 from nostalgiabox.application.runtime import (
     ChannelRuntime,
     ChannelRuntimeError,
+    MediaLocationUnavailableError,
     RuntimeAction,
+    RuntimeFailure,
     RuntimeSnapshot,
 )
 from nostalgiabox.config.database import is_in_memory_sqlite_url
@@ -76,16 +78,37 @@ def run_proof_loop(
     report: Callable[[str], None] = print,
 ) -> RuntimeSnapshot:
     """Run the thin polling loop while keeping orchestration independently testable."""
-    snapshot = runtime.synchronise(channel_id)
-    report(_snapshot_json(snapshot))
+    snapshot: RuntimeSnapshot
+    try:
+        snapshot = runtime.synchronise(channel_id)
+    except (MediaLocationUnavailableError, PlayerError):
+        failed_snapshot = runtime.get_snapshot()
+        if failed_snapshot is None or once:
+            raise
+        snapshot = failed_snapshot
+        failure = runtime.get_failure()
+        if failure is not None:
+            report(_failure_json(failure))
+    else:
+        report(_snapshot_json(snapshot))
     if once:
         return snapshot
 
     try:
         while True:
             sleep(poll_seconds)
-            snapshot = runtime.tick()
-            if snapshot.last_action is not RuntimeAction.NO_CHANGE:
+            try:
+                snapshot = runtime.tick()
+            except (MediaLocationUnavailableError, PlayerError):
+                failure = runtime.get_failure()
+                if failure is not None:
+                    report(_failure_json(failure))
+                continue
+            if snapshot.last_action in {
+                RuntimeAction.BOUNDARY_ADVANCE,
+                RuntimeAction.FORCED_RESYNC,
+                RuntimeAction.PLAYER_RECOVERED,
+            }:
                 report(_snapshot_json(snapshot))
     except KeyboardInterrupt:
         report("Channel proof stopped.")
@@ -168,6 +191,22 @@ def _snapshot_json(snapshot: RuntimeSnapshot) -> str:
 
 def _timedelta_microseconds(value: timedelta) -> int:
     return (value.days * 86_400 + value.seconds) * 1_000_000 + value.microseconds
+
+
+def _failure_json(failure: RuntimeFailure) -> str:
+    return json.dumps(
+        {
+            "action": "controlled_failure",
+            "failure_category": failure.category.value,
+            "player_failure_type": failure.player_failure_type,
+            "channel_id": failure.channel_id.value,
+            "timeline_entry_id": failure.timeline_entry_id.value,
+            "media_item_id": failure.media_item_id.value,
+            "now_utc": failure.occurred_at_utc.isoformat(),
+            "message": failure.message,
+        },
+        separators=(",", ":"),
+    )
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from nostalgiabox.application.player import PlayerMediaLoadError
 from nostalgiabox.application.runtime import ChannelRuntime
 from nostalgiabox.config.settings import Settings
 from nostalgiabox.domain.models import Channel, ChannelId, MediaItem, MediaItemId
@@ -91,6 +92,26 @@ def test_continuous_loop_stops_cleanly_on_keyboard_interrupt() -> None:
     )
 
     assert snapshot.live_offset == timedelta(minutes=3)
+    assert reports[-1] == "Channel proof stopped."
+
+
+def test_continuous_loop_reports_initial_media_failure_and_remains_controlled() -> None:
+    runtime, player = _runtime()
+    player.fail_next(PlayerMediaLoadError("loading failed"))
+    reports: list[str] = []
+
+    snapshot = run_proof_loop(
+        runtime,
+        ChannelId("channel-001"),
+        once=False,
+        poll_seconds=0.5,
+        sleep=lambda _: (_ for _ in ()).throw(KeyboardInterrupt),
+        report=reports.append,
+    )
+
+    assert snapshot.media_item_id == MediaItemId("media-a")
+    assert '"failure_category":"media_load"' in reports[0]
+    assert '"timeline_entry_id":' in reports[0]
     assert reports[-1] == "Channel proof stopped."
 
 
