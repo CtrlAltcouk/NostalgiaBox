@@ -177,9 +177,9 @@ On the reference appliance, demonstrate at minimum:
 
 ## Task 2.6 — Input proof and failure behaviour
 
-**Implementation status:** automated implementation and development validation complete;
-reference-Dell remote, real-MPV media-failure and isolated player-loss/recovery validation remains
-pending manual execution after review.
+**Implementation status:** complete. Automated Debian 13 validation and all isolated reference-Dell
+proofs passed: physical remote mapping, remote-to-real-MPV pause/resume, controlled missing/corrupt
+media, bounded player-loss recovery, and same-entry/cross-boundary wall-clock rejoin.
 
 ### Objectives
 

@@ -27,9 +27,9 @@
 | Restart/rejoin behaviour | PASS | A new proof process ignored prior player position, recalculated wall-clock truth and joined Programme 07 approximately 1.593 seconds after its scheduled start. |
 | Suspend/live re-sync path | PARTIAL | Forced same-entry and crossed-boundary resynchronisation pass with simulated lost time. Actual system suspend/resume hooks are deliberately outside Task 2.5 and remain unimplemented. |
 | Automated Task 2.6 input/failure proof | PASS | Logical input/profile translation, press-only semantics, application PLAY_PAUSE dispatch, structured MPV load completion, typed failures, same-entry media suppression and bounded player recovery pass deterministically without Linux input hardware or MPV. |
-| Reference-Dell input abstraction proof | PARTIAL | Exact isolated steps are documented. Real Nordic 1915:1025 mapping and remote-to-real-MPV pause/resume remain pending manual execution after review. |
-| Missing/corrupt media handling | PARTIAL | Automated typed failure state, structured context and retry suppression pass. Missing-path and corrupt-file cases against isolated real MPV remain pending on the Dell. |
-| Player failure handling | PARTIAL | Automated five-second health/recovery cadence and same-entry/crossed-boundary wall-clock recovery pass with FakeClock/FakePlayer. Isolated real-MPV loss/recovery remains pending on the Dell. |
+| Reference-Dell input abstraction proof | PASS | Nordic 1915:1025 Consumer Control `KEY_PLAYPAUSE` produced exactly one logical `play_pause` action per press; release did not duplicate it. The same physical control visibly paused/resumed isolated real MPV through the complete logical abstraction. |
+| Missing/corrupt media handling | PASS | Isolated missing-path and corrupt-file loads became typed `PlayerMediaLoadError`/`media_load` failures with structured context, no crash, skip, database mutation, fabricated offset or tight retry loop. |
+| Player failure handling | PASS | Isolated MPV loss produced distinct `PlayerUnavailableError` failures at approximately five-second cadence. Independent MPV restart triggered wall-clock resynchronisation at fresh offsets within the same entry and after crossing a boundary. |
 | Timezone/DST tests | PARTIAL | Task 2.2 UTC resolution passed representative `Europe/London` spring-forward and autumn-fold cases. Local schedule authoring and full Phase 2 integration evidence remain. |
 
 ### Task 2.2 automated evidence
@@ -232,138 +232,128 @@ test skipped on that environment. Task 2.6 adds deterministic coverage for:
   the same entry at a recalculated offset and after a boundary into the newly live entry;
 - sanitized, observation-only `/runtime` failure projection and unchanged `/health` behaviour.
 
-Ruff lint and format checks pass. Strict mypy passes over 78 source files. No automated test uses a
-real input device, MPV, user media, production database or real-time sleep. Reference-Dell Task 2.6
-acceptance remains **PARTIAL** until all procedures below are executed and evidence is recorded.
+Reference Debian 13 validation under Python 3.13.5 passed all 192 tests, including the AF_UNIX test
+skipped on Windows. Ruff lint and format checks passed, and strict mypy passed over 78 source files.
+Building the optional evdev dependency on the Dell required `linux-libc-dev`, headers for the
+running kernel, GCC/G++, `build-essential` and `python3.13-dev`; installation then succeeded. No
+automated test uses a real input device, MPV, user media, production database or real-time sleep.
 
-### Task 2.6 isolated reference-Dell validation (pending)
+### Task 2.6 isolated reference-Dell validation
 
-Do not modify `/opt/nostalgiabox/launch.sh`, autologin, X startup, boot configuration, the
-production database, `/run/nostalgiabox/mpv.sock` or existing remote suspend behaviour. Install the
-reviewed branch in a disposable development environment with the Linux-only optional adapter:
-
-```bash
-cd /path/to/reviewed/NostalgiaBox/backend
-sudo apt-get install --no-install-recommends build-essential python3-dev
-python3.13 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e '.[dev,linux-input]'
-```
-
-Use these isolated resources and operator-owned media only:
+Task 2.6 reference acceptance is **PASS** on the Debian 13 Dell. All validation used isolated
+temporary resources and operator-owned media:
 
 ```text
 Database: /tmp/nostalgiabox-phase26.db
 Manifest: /tmp/nostalgiabox-phase26.json
 MPV socket: /tmp/nostalgiabox-phase26-mpv.sock
+MPV log: /tmp/nostalgiabox-phase26-mpv.log
 Corrupt file: /tmp/nostalgiabox-corrupt-test.bin
 ```
 
-#### Proof A — input mapping
+The production database/socket, `/opt/nostalgiabox/launch.sh`, autologin, X startup, boot
+configuration, systemd supervision and existing remote power/suspend behaviour were not modified.
+The proof tooling did not launch or supervise replacement MPV; every isolated restart was performed
+independently by the operator.
 
-1. Connect the Nordic 1915:1025 receiver and identify its Consumer Control interface without
-   assuming an event number:
+#### Proof A — reference remote input mapping — PASS
 
-   ```bash
-   ls -l /dev/input/by-id/
-   python -m evdev.evtest
-   ```
+The receiver identified as USB 1915:1025, `USB Composite Device USB Composite Device Consumer
+Control`. It appeared as `/dev/input/event0` during this session, but that observation is not a
+stable or hard-coded production path. Raw evdev reported `KEY_PLAYPAUSE` code 164 with value 1 on
+press and value 0 on release.
 
-   Confirm the selected interface identifies the Nordic USB Composite Device and reports
-   `KEY_PLAYPAUSE` 164. Prefer its stable `/dev/input/by-id/...-event-if...` symlink when available.
-2. Start the input proof against an explicit isolated socket path (MPV may be idle for mapping-only
-   evidence):
+One physical press produced exactly one logical result:
 
-   ```bash
-   nostalgiabox-input-proof \
-     --device '/dev/input/by-id/<consumer-control-link>' \
-     --socket /tmp/nostalgiabox-phase26-mpv.sock
-   ```
+```text
+input_profile:       nordic-1915-1025-consumer-control
+logical_input_action: play_pause
+outcome:              ignored_idle
+```
 
-3. Press Play/Pause once. Record one `play_pause` result. Hold the key briefly and release it;
-   confirm repeat/release produce no additional logical action. Stop with Ctrl+C and confirm clean
-   exit. Do not test or intercept `KEY_POWER`.
+Release produced no duplicate action, proving the profile boundary and press-only semantics.
 
-#### Proof B — physical remote to real playback
+#### Proof B — physical remote to real MPV — PASS
 
-1. In the `nostalgia` user's active X session, start only an isolated MPV with operator-owned media:
+An isolated fullscreen VA-API MPV used `/tmp/nostalgiabox-phase26-mpv.sock`, `--no-audio` and an
+operator-owned Phineas and Ferb test video. Repeated physical Play/Pause presses produced alternating
+`paused` and `resumed` outcomes, with matching visible pause/resume on the television. This proves:
 
-   ```bash
-   DISPLAY=:0 mpv \
-     --idle=yes --force-window=yes --keep-open=yes \
-     --input-ipc-server=/tmp/nostalgiabox-phase26-mpv.sock \
-     --fs --no-border --hwdec=vaapi --no-audio \
-     '/path/to/operator-owned-test-video.mkv'
-   ```
+```text
+physical remote
+  -> Linux evdev adapter
+  -> Nordic remote profile
+  -> InputAction.PLAY_PAUSE
+  -> ApplicationInputController
+  -> Player abstraction
+  -> real MPV
+```
 
-2. Run `nostalgiabox-input-proof` with the same explicit device and socket. Press the physical
-   Play/Pause button once and confirm visible pause; press once more and confirm visible resume.
-   Record the mapped action/outcome lines. `--no-audio` is permitted because HDMI audio is already
-   proven and the normal player owns the exclusive ALSA device.
+#### Proof C — missing scheduled media — PASS
 
-#### Proof C — missing scheduled media
+The active item `phase26-missing` deliberately referenced the nonexistent path
+`/tmp/nostalgiabox-definitely-missing-phase26.mkv`. The still-running proof reported:
 
-1. Create an external Task 2.3-format manifest whose timeline covers the test time and whose active
-   item path is a deliberately nonexistent unique path under `/tmp`. Do not create that target file.
-2. Migrate and seed only the temporary database:
+```text
+action:              controlled_failure
+failure_category:    media_load
+player_failure_type: PlayerMediaLoadError
+media_item_id:       phase26-missing
+message:             player could not load media: loading failed
+```
 
-   ```bash
-   NOSTALGIABOX_DATABASE_URL=sqlite:////tmp/nostalgiabox-phase26.db alembic upgrade head
-   nostalgiabox-seed \
-     --database-url sqlite:////tmp/nostalgiabox-phase26.db \
-     --manifest /tmp/nostalgiabox-phase26.json
-   ```
+There was no traceback-driven crash, programme substitution, fabricated zero offset, database
+mutation or half-second reload loop. Same-entry retry suppression behaved as designed.
 
-3. With isolated MPV running on the Phase 2.6 socket, run:
+#### Proof D — corrupt/unplayable media — PASS
 
-   ```bash
-   nostalgiabox-channel-proof \
-     --database-url sqlite:////tmp/nostalgiabox-phase26.db \
-     --socket /tmp/nostalgiabox-phase26-mpv.sock \
-     --channel-number 1 --poll-seconds 0.5
-   ```
+MPV rejected `/tmp/nostalgiabox-corrupt-test.bin`. Structured load/event handling produced:
 
-4. Confirm one controlled `media_load` failure with channel/timeline/media IDs, no traceback-driven
-   process exit, no repeated half-second load attempts, no programme substitution, no offset-zero
-   fabrication and no database mutation. A later timeline entry may make one fresh attempt.
+```text
+action:              controlled_failure
+failure_category:    media_load
+player_failure_type: PlayerMediaLoadError
+media_item_id:       phase26-corrupt
+message:             player could not load media: unrecognized file format
+```
 
-#### Proof D — corrupt/unplayable media
+There was no terminal/stdout parsing, traceback-driven crash, silent skip or tight retry loop.
 
-1. Create a harmless invalid file outside Git:
+#### Proof E — isolated MPV loss and bounded recovery — PASS
 
-   ```bash
-   printf 'NostalgiaBox invalid media proof\n' > /tmp/nostalgiabox-corrupt-test.bin
-   ```
+Terminating only the isolated MPV produced `player_unavailable` with
+`PlayerUnavailableError`. Failure/recovery checks occurred approximately every five seconds rather
+than at the 0.5-second channel poll rate, proving bounded cadence without a busy retry loop.
 
-2. Seed an isolated current entry referencing that path, then run the same isolated channel proof.
-3. Confirm MPV produces a structured failed-load end event and NostalgiaBox reports a controlled
-   `PlayerMediaLoadError`/`media_load` failure once for that entry. Confirm there is no terminal-log
-   parsing, stacktrace-driven crash, silent skip or tight retry loop.
+During a cross-boundary outage, independently restarting MPV on the same socket caused the existing
+runtime to resolve Programme 03 rather than stale pre-outage content:
 
-#### Proof E — isolated MPV loss and recovery
+```text
+action:          player_recovered
+media_item_id:   phase26-recovery-03
+now_utc:         2026-08-09T14:13:36.294598+00:00
+entry_start_utc: 2026-08-09T14:13:26.135109+00:00
+live_offset_us:  10159489
+```
 
-1. Seed the temporary database with several short entries pointing to valid operator-owned media.
-   Start isolated MPV and continuous channel proof on the Phase 2.6 paths.
-2. Stop only the isolated MPV. Confirm the proof reports `player_unavailable`, remains running and
-   attempts health/reconnection no more often than once every five seconds.
-3. Leave MPV absent long enough to remain in the same entry for one run and to cross a scheduled
-   boundary for another. Restart isolated MPV on the same socket without restarting the proof:
+The recovered offset was approximately 10.159 seconds into the newly live entry.
 
-   ```bash
-   DISPLAY=:0 mpv \
-     --idle=yes --force-window=yes --keep-open=yes \
-     --input-ipc-server=/tmp/nostalgiabox-phase26-mpv.sock \
-     --fs --no-border --hwdec=vaapi --no-audio
-   ```
+A second outage remained within `phase26-recovery-05`, scheduled from
+`2026-08-09T14:15:26.135109+00:00` through `2026-08-09T14:16:26.135109+00:00`. Controlled failures
+were observed at approximately 14:15:51, 14:15:56, 14:16:01, 14:16:06 and 14:16:11. Independent
+MPV restart then produced:
 
-4. Confirm restored health triggers `player_recovered`, reloads schedule truth rather than player
-   memory, selects the entry live now and uses the current wall-clock offset. Record same-entry and
-   crossed-boundary evidence. The proof must not launch, stop or supervise MPV itself.
+```text
+action:          player_recovered
+media_item_id:   phase26-recovery-05
+now_utc:         2026-08-09T14:16:16.524816+00:00
+entry_start_utc: 2026-08-09T14:15:26.135109+00:00
+live_offset_us:  50389707
+```
 
-Task 2.6 reference acceptance remains **PARTIAL** until real remote mapping, remote-to-MPV control,
-missing media, corrupt media and isolated MPV loss/recovery all pass on the Dell. Phase 2 is not
-complete and Task 2.7 has not begun.
+The recovered offset was approximately 50.390 seconds into the same scheduled entry. Both recovery
+cases recalculated current schedule truth and a fresh live offset; neither used a stale playback
+cursor. Task 2.6 is complete, but Phase 2 remains in progress and Task 2.7 has not begun.
 
 ## Unit-test requirements
 
