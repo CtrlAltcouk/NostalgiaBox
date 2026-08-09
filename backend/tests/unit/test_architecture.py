@@ -39,6 +39,32 @@ def test_application_has_no_framework_orm_or_physical_protocol_details() -> None
         assert marker not in source
 
 
+def test_task31_catalogue_foundation_has_no_scanner_or_probe_dependencies() -> None:
+    catalogue_files = [
+        _PACKAGE_ROOT / "domain" / "catalogue.py",
+        _PACKAGE_ROOT / "application" / "catalogue.py",
+        _PACKAGE_ROOT / "persistence" / "catalogue_mappers.py",
+        _PACKAGE_ROOT / "persistence" / "catalogue_repositories.py",
+    ]
+    source = "\n".join(path.read_text(encoding="utf-8") for path in catalogue_files)
+    imports = set().union(*(_imports_under(path.parent) for path in catalogue_files[:2]))
+
+    _assert_no_prefix(imports, "subprocess", "fastapi", "sqlalchemy", "alembic", "pydantic")
+    for marker in ("ffprobe", "fingerprint", "directory scan", "os.walk", "rglob("):
+        assert marker not in source.lower()
+
+
+def test_phase2_timeline_and_runtime_do_not_depend_on_catalogue_infrastructure() -> None:
+    phase2_files = [
+        _PACKAGE_ROOT / "domain" / "timeline.py",
+        _PACKAGE_ROOT / "application" / "runtime.py",
+    ]
+
+    for path in phase2_files:
+        assert "nostalgiabox.domain.catalogue" not in path.read_text(encoding="utf-8")
+        assert "nostalgiabox.persistence.catalogue" not in path.read_text(encoding="utf-8")
+
+
 def test_persistence_playback_input_and_api_dependencies_remain_directed() -> None:
     persistence_imports = _imports_under(_PACKAGE_ROOT / "persistence")
     playback_imports = _imports_under(_PACKAGE_ROOT / "playback")

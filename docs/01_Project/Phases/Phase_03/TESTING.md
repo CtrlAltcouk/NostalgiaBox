@@ -2,8 +2,9 @@
 
 ## Status
 
-**Planned — 2026-08-09.** No Phase 3 test is marked PASS. Phase 2's 201-test Debian baseline remains
-mandatory regression evidence; counts will change only as reviewed implementation lands.
+**In progress — 2026-08-09.** Task 3.1 is `PASS`, including isolated reference-Dell acceptance.
+Debian 13/Python 3.13.5 passed all 250 tests with no skips, including the Linux AF_UNIX integration
+path. Later Phase 3 tasks and Phase 3 as a whole remain in progress.
 
 Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 `DEFERRED-BY-APPROVED-SCOPE`.
@@ -24,9 +25,11 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 
 | Area/scenario | Automated evidence required | Reference/manual evidence | Status |
 | --- | --- | --- | --- |
-| Phase 2 regression | Complete backend suite, architecture tests, migration compatibility | Debian full suite | PLANNED |
-| Additive Phase 2 compatibility migration | Same-ID catalogue backfill; unchanged `media_items`, timeline FKs, runtime projection and lossless downgrade | Disposable Phase 2-shaped Dell DB | PLANNED |
-| Catalogue item without rendition | Persist/query logical identity without creating a Phase 2 playable row | Not required | PLANNED |
+| Phase 2 regression | Complete backend suite, architecture tests, migration compatibility | Debian full suite: 250 passed, no skips, including AF_UNIX | PASS |
+| Additive Phase 2 compatibility migration | Same-ID catalogue backfill; unchanged `media_items`, timeline FKs, runtime projection and lossless downgrade | Disposable Phase 2-shaped Dell DB lifecycle passed | PASS |
+| Catalogue item without rendition | Persist/query logical identity without creating a Phase 2 playable row | Not required | PASS |
+| Historical file identity at reused locator | Two stable `MediaFile` IDs may share one source/normalized locator; composite lookup index is non-unique; blank IDs/locators fail DB checks | Not required | PASS |
+| One active file per source/locator | Add transactional and database-backed active-only uniqueness after media-file lifecycle/state exists | Owned by future scanning/reconciliation lifecycle; not implemented in Task 3.1 | PLANNED |
 | Initial local scan | Temporary tree → migrated DB → file/catalogue projections | Dell temporary local folder | PLANNED |
 | Local allowed-root safety | Canonical containment, traversal/symlink/protected-root rejection and explicit expert-root allow-list | Dell approved-root permission smoke | PLANNED |
 | Unchanged incremental scan | IDs/revisions/probe calls unchanged | Measured no-op scan | PLANNED |
@@ -49,16 +52,16 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Manual correction survives rescan | Override and locked match beat refreshed derived data | Browser correction then rescan | PLANNED |
 | Clear correction | Latest derived value becomes effective | Browser flow | PLANNED |
 | Concurrent edit | Revision conflict, no lost update | Two browser sessions optional | PLANNED |
-| Multiple renditions | One logical item, deterministic available preferred file | Local/NAS copies | PLANNED |
-| Whole-file rendition | Zero origin and validated physical/logical duration | Known-duration fixture | PLANNED |
-| Multi-episode segments | One physical file, distinct catalogue IDs/ranges; invalid, zero, negative, out-of-bounds and accidental overlap rejected | Manual segment smoke with operator fixture | PLANNED |
-| Segment playback projection | Resolver returns path/origin/logical bound; physical seek equals origin plus logical offset outside React/timeline | FakePlayer integration | PLANNED |
+| Multiple renditions | One logical item, deterministic preferred lookup and one-preferred constraint pass | Local/NAS selection policy belongs to later tasks | PARTIAL |
+| Whole-file rendition | Zero origin and validated physical/logical duration pass | Not required for pure Task 3.1 foundation | PASS |
+| Multi-episode segments | One physical file, distinct catalogue IDs/ranges; invalid, zero, negative, out-of-bounds and accidental overlap rejected | Later operator-fixture smoke remains | PARTIAL |
+| Segment playback projection | Pure resolver value returns path/origin/logical bound; physical position equals origin plus logical offset outside React/timeline | Runtime integration deliberately deferred; Phase 2 runtime unchanged | PARTIAL |
 | Rendition duration discrepancy | Needs Attention issue; preferred rendition change does not mutate `MediaItem.duration` or existing timeline boundaries | Optional browser inspection | PLANNED |
 | Unavailable preferred rendition | Controlled alternate selection or explicit unavailable result per policy | NAS loss during lookup | PLANNED |
 | Playback while scanning | Runtime reads/MPV fake continue during batched writes | Real MPV playback during scan | PLANNED |
 | Concurrent WebUI reads | Bounded latency/no lock failures while scan writes | Desktop/phone browse during scan | PLANNED |
 | SQLite busy/retry bounds | Transient busy recovers; persistent busy fails safely | Dell WAL/busy benchmark | PLANNED |
-| Migration lifecycle | Empty and Phase-2 DB additive upgrade/current/repeat/downgrade/re-upgrade with unchanged compatibility rows/FKs | Disposable Dell DB | PLANNED |
+| Migration lifecycle | Empty and Phase-2 DB additive upgrade/current/repeat/downgrade/re-upgrade with unchanged compatibility rows/FKs | Disposable Dell DB passed through `20260808_0001` and `20260809_0002` | PASS |
 | Source API | Validation, lifecycle, test, redaction, status codes | Live API smoke | PLANNED |
 | Scan API | 202/job ID, progress/history/issues, conflict/cancel | Live scan polling | PLANNED |
 | Catalogue API | Pagination/search/filter/detail/attention/corrections/ETag | Live browser use | PLANNED |
@@ -112,6 +115,32 @@ review rather than invented values.
 - Verify API, logs, scan issues and frontend errors redact subprocess stderr and secrets.
 
 ## Reference-Dell/NAS acceptance sequence
+
+### Task 3.1 isolated reference-Dell evidence — PASS
+
+Validation completed on Debian 13 with Python 3.13.5 using the temporary detached worktree
+`/tmp/nostalgiabox-task31`, an isolated virtual environment inside it and disposable SQLite data
+under `/tmp`.
+
+- Full `pytest`: **250 passed, no skips**. The Linux AF_UNIX integration path ran and passed; the
+  full Phase 2 regression and Task 3.1 automated suite therefore pass on the reference appliance.
+- Focused `test_catalogue_migration.py` plus `test_catalogue_repositories.py`: **19 passed**. This
+  covers populated same-ID migration, exact Phase 2 media/timeline/FK preservation, repository and
+  compatibility projection behavior, multi-episode/shared-file representation, distinct historical
+  file IDs at one locator, absence of invented lifecycle state, SQLite integrity checks, rendition
+  conflict/preferred rules and FK deletion protection.
+- `ruff check .`: **PASS**.
+- `ruff format --check .`: **PASS**, 92 files already formatted.
+- `mypy`: **PASS**, no issues across 89 source files.
+- Explicit Alembic lifecycle on a completely disposable database: empty upgrade through
+  `20260808_0001` to `20260809_0002 (head)`, repeated head upgrade, downgrade to `20260808_0001`,
+  and re-upgrade to `20260809_0002 (head)` all passed.
+
+The disposable database and temporary worktree were removed after validation. The production
+database and media library were not accessed, and MPV, boot/X, autologin and systemd configuration
+were not modified. This evidence accepts only Task 3.1. Active-file locator uniqueness, source
+lifecycle, scanning, ffprobe, fingerprints, reconciliation, SMB/NAS, matching, WebUI,
+authentication and Phase 4 scheduling integration remain later work.
 
 Use isolated temporary sources, a least-privilege test share/account and operator-owned test media:
 

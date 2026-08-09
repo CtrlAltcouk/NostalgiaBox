@@ -1,5 +1,23 @@
 """Pure NostalgiaBox domain types and timeline rules."""
 
+from nostalgiabox.domain.catalogue import (
+    CatalogueDomainError,
+    CatalogueItem,
+    CatalogueItemId,
+    InvalidMediaFileError,
+    InvalidPlayableRenditionError,
+    MediaFile,
+    MediaFileId,
+    MediaSource,
+    MediaSourceId,
+    MediaSourceKind,
+    PlayableRendition,
+    PlayableRenditionId,
+    PreferredRenditionConflictError,
+    RenditionOverlapError,
+    validate_physical_duration,
+    validate_rendition_set,
+)
 from nostalgiabox.domain.clock import Clock, SystemClock
 from nostalgiabox.domain.exceptions import (
     EmptyTimelineError,
@@ -31,6 +49,9 @@ from nostalgiabox.domain.timeline import (
 )
 
 __all__ = [
+    "CatalogueDomainError",
+    "CatalogueItem",
+    "CatalogueItemId",
     "Channel",
     "ChannelId",
     "ChannelTimeline",
@@ -39,11 +60,22 @@ __all__ = [
     "EmptyTimelineError",
     "InvalidChannelError",
     "InvalidIdentifierError",
+    "InvalidMediaFileError",
     "InvalidMediaItemError",
+    "InvalidPlayableRenditionError",
     "InvalidTimelineEntryError",
+    "MediaFile",
+    "MediaFileId",
     "MediaItem",
     "MediaItemId",
+    "MediaSource",
+    "MediaSourceId",
+    "MediaSourceKind",
     "NaiveDateTimeError",
+    "PlayableRendition",
+    "PlayableRenditionId",
+    "PreferredRenditionConflictError",
+    "RenditionOverlapError",
     "ResolvedTimelineEntry",
     "SystemClock",
     "TimelineChannelMismatchError",
@@ -55,4 +87,6 @@ __all__ = [
     "TimelineOverlapError",
     "build_sequential_timeline",
     "resolve_active_entry",
+    "validate_physical_duration",
+    "validate_rendition_set",
 ]
