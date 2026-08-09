@@ -2,8 +2,9 @@
 
 ## Status
 
-**Planned — 2026-08-09.** No Phase 3 test is marked PASS. Phase 2's 201-test Debian baseline remains
-mandatory regression evidence; counts will change only as reviewed implementation lands.
+**In progress — 2026-08-09.** Task 3.1 automated development validation passes: 243 tests passed on
+Windows/Python 3.13 and the platform-gated AF_UNIX test was skipped. The Phase 2 201-test Debian
+baseline remains authoritative; Task 3.1's isolated reference-Dell regression is still pending.
 
 Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 `DEFERRED-BY-APPROVED-SCOPE`.
@@ -24,9 +25,9 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 
 | Area/scenario | Automated evidence required | Reference/manual evidence | Status |
 | --- | --- | --- | --- |
-| Phase 2 regression | Complete backend suite, architecture tests, migration compatibility | Debian full suite | PLANNED |
-| Additive Phase 2 compatibility migration | Same-ID catalogue backfill; unchanged `media_items`, timeline FKs, runtime projection and lossless downgrade | Disposable Phase 2-shaped Dell DB | PLANNED |
-| Catalogue item without rendition | Persist/query logical identity without creating a Phase 2 playable row | Not required | PLANNED |
+| Phase 2 regression | Complete backend suite, architecture tests, migration compatibility | Task 3.1 Debian full suite pending | PARTIAL |
+| Additive Phase 2 compatibility migration | Same-ID catalogue backfill; unchanged `media_items`, timeline FKs, runtime projection and lossless downgrade passed on disposable Windows DBs | Disposable Phase 2-shaped Dell DB pending | PARTIAL |
+| Catalogue item without rendition | Persist/query logical identity without creating a Phase 2 playable row | Not required | PASS |
 | Initial local scan | Temporary tree → migrated DB → file/catalogue projections | Dell temporary local folder | PLANNED |
 | Local allowed-root safety | Canonical containment, traversal/symlink/protected-root rejection and explicit expert-root allow-list | Dell approved-root permission smoke | PLANNED |
 | Unchanged incremental scan | IDs/revisions/probe calls unchanged | Measured no-op scan | PLANNED |
@@ -49,16 +50,16 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Manual correction survives rescan | Override and locked match beat refreshed derived data | Browser correction then rescan | PLANNED |
 | Clear correction | Latest derived value becomes effective | Browser flow | PLANNED |
 | Concurrent edit | Revision conflict, no lost update | Two browser sessions optional | PLANNED |
-| Multiple renditions | One logical item, deterministic available preferred file | Local/NAS copies | PLANNED |
-| Whole-file rendition | Zero origin and validated physical/logical duration | Known-duration fixture | PLANNED |
-| Multi-episode segments | One physical file, distinct catalogue IDs/ranges; invalid, zero, negative, out-of-bounds and accidental overlap rejected | Manual segment smoke with operator fixture | PLANNED |
-| Segment playback projection | Resolver returns path/origin/logical bound; physical seek equals origin plus logical offset outside React/timeline | FakePlayer integration | PLANNED |
+| Multiple renditions | One logical item, deterministic preferred lookup and one-preferred constraint pass | Local/NAS selection policy belongs to later tasks | PARTIAL |
+| Whole-file rendition | Zero origin and validated physical/logical duration pass | Not required for pure Task 3.1 foundation | PASS |
+| Multi-episode segments | One physical file, distinct catalogue IDs/ranges; invalid, zero, negative, out-of-bounds and accidental overlap rejected | Later operator-fixture smoke remains | PARTIAL |
+| Segment playback projection | Pure resolver value returns path/origin/logical bound; physical position equals origin plus logical offset outside React/timeline | Runtime integration deliberately deferred; Phase 2 runtime unchanged | PARTIAL |
 | Rendition duration discrepancy | Needs Attention issue; preferred rendition change does not mutate `MediaItem.duration` or existing timeline boundaries | Optional browser inspection | PLANNED |
 | Unavailable preferred rendition | Controlled alternate selection or explicit unavailable result per policy | NAS loss during lookup | PLANNED |
 | Playback while scanning | Runtime reads/MPV fake continue during batched writes | Real MPV playback during scan | PLANNED |
 | Concurrent WebUI reads | Bounded latency/no lock failures while scan writes | Desktop/phone browse during scan | PLANNED |
 | SQLite busy/retry bounds | Transient busy recovers; persistent busy fails safely | Dell WAL/busy benchmark | PLANNED |
-| Migration lifecycle | Empty and Phase-2 DB additive upgrade/current/repeat/downgrade/re-upgrade with unchanged compatibility rows/FKs | Disposable Dell DB | PLANNED |
+| Migration lifecycle | Empty and Phase-2 DB additive upgrade/current/repeat/downgrade/re-upgrade with unchanged compatibility rows/FKs pass on Windows | Disposable Dell DB pending | PARTIAL |
 | Source API | Validation, lifecycle, test, redaction, status codes | Live API smoke | PLANNED |
 | Scan API | 202/job ID, progress/history/issues, conflict/cancel | Live scan polling | PLANNED |
 | Catalogue API | Pagination/search/filter/detail/attention/corrections/ETag | Live browser use | PLANNED |
@@ -112,6 +113,55 @@ review rather than invented values.
 - Verify API, logs, scan issues and frontend errors redact subprocess stderr and secrets.
 
 ## Reference-Dell/NAS acceptance sequence
+
+### Task 3.1 isolated reference-Dell procedure (pending)
+
+Run from an existing NostalgiaBox repository on Debian 13. These commands use a detached temporary
+worktree, an isolated virtual environment and disposable SQLite files. They do not address
+`/var/lib/nostalgiabox/nostalgiabox.db`, the production media library, MPV, boot/X/autologin or
+systemd configuration.
+
+```bash
+set -euo pipefail
+git fetch origin
+test ! -e /tmp/nostalgiabox-task31
+git worktree add --detach /tmp/nostalgiabox-task31 \
+  origin/codex/phase-3.1-catalogue-foundation
+cd /tmp/nostalgiabox-task31/backend
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -e '.[dev,linux-input]'
+
+.venv/bin/python -m pytest
+.venv/bin/python -m ruff check .
+.venv/bin/python -m ruff format --check .
+.venv/bin/python -m mypy
+
+# Focused populated Phase 2 compatibility, same-ID, row-preservation and runtime proof.
+.venv/bin/python -m pytest -vv \
+  tests/integration/test_catalogue_migration.py \
+  tests/integration/test_catalogue_repositories.py
+
+# Explicit empty migration current/repeat/downgrade/re-upgrade lifecycle.
+validation_root="$(mktemp -d /tmp/nostalgiabox-task31-migration.XXXXXX)"
+trap 'rm -rf -- "$validation_root"' EXIT
+export NOSTALGIABOX_ENVIRONMENT=test
+export NOSTALGIABOX_DATABASE_URL="sqlite+pysqlite:///$validation_root/empty.db"
+.venv/bin/alembic upgrade head
+.venv/bin/alembic current
+.venv/bin/alembic upgrade head
+.venv/bin/alembic downgrade 20260808_0001
+.venv/bin/alembic current
+.venv/bin/alembic upgrade head
+.venv/bin/alembic current
+unset NOSTALGIABOX_DATABASE_URL NOSTALGIABOX_ENVIRONMENT
+
+cd -
+git worktree remove --force /tmp/nostalgiabox-task31
+```
+
+Record the Python version, full pytest total (including the Linux AF_UNIX result), Ruff and mypy
+totals, Alembic revision output, focused-test result and confirmation that cleanup completed. Do not
+mark Task 3.1 reference acceptance `PASS` until this procedure is physically executed on the Dell.
 
 Use isolated temporary sources, a least-privilege test share/account and operator-owned test media:
 

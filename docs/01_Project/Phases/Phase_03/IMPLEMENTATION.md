@@ -2,9 +2,11 @@
 
 ## Status and delivery rules
 
-**Planning only — 2026-08-09.** No task below is implemented or accepted. Each task requires its
-own branch, review, tests, migration lifecycle where applicable, documentation and proportionate
-reference-Dell evidence. Phase 2 tests and architecture remain mandatory regression coverage.
+**Implementation in progress — 2026-08-09.** Task 3.1 is implemented on its review branch and its
+development validation passes; isolated reference-Dell validation remains pending. Later tasks and
+Phase 3 as a whole are not implemented or accepted. Each task requires its own branch, review,
+tests, migration lifecycle where applicable, documentation and proportionate reference-Dell
+evidence. Phase 2 tests and architecture remain mandatory regression coverage.
 
 Rules for every task:
 
@@ -39,6 +41,33 @@ Rules for every task:
 - **Exit:** additive identities/renditions exist, all Phase 2 IDs/runtime behavior remain intact,
   and no scanning, ffprobe, fingerprinting, SMB mount, matching parser, WebUI, authentication or
   Phase 4 timeline-generation behavior has been introduced.
+
+#### Task 3.1 implementation evidence
+
+- **Development status:** `PARTIAL` pending reference-Dell validation. The Windows/Python 3.13
+  suite passes with 243 passed and the Linux-only AF_UNIX test skipped as expected.
+- **Pure model:** immutable opaque IDs and minimum `CatalogueItem`, `MediaSource`, `MediaFile` and
+  `PlayableRendition` values enforce source-relative locators and exact `timedelta` segment rules.
+  One physical file may back adjacent non-overlapping renditions for several catalogue items.
+- **Ports/projection:** caller-transaction-owned repository ports and a pure playback projection
+  expose catalogue ID, resolved physical path, physical origin/end and logical duration. Timeline,
+  React and API layers do not calculate segment positions.
+- **Persistence:** revision `20260809_0002` adds only `catalogue_items`, `media_sources`,
+  `media_files` and `playable_renditions`, with foreign keys, single-row checks, lookup indexes,
+  per-source locator uniqueness and a partial unique index allowing at most one preferred rendition
+  per catalogue item. Inter-row overlap is validated by the domain/repository because a SQLite
+  `CHECK` constraint cannot inspect other rows.
+- **Compatibility:** migration backfill copies each legacy `media_items.id` unchanged into
+  `catalogue_items.id`; it does not alter legacy rows, paths, duration, timeline FKs or boundaries.
+  The separate legacy projection resolver reads the existing same-ID `StoredMediaItem` path and
+  duration. Catalogue-only items explicitly resolve as unplayable rather than manufacturing data.
+  Production `ChannelRuntime` remains unchanged.
+- **Migration proof:** automated empty and populated Phase 2 upgrade/repeat/downgrade/re-upgrade
+  tests compare exact legacy row snapshots, exercise the Phase 2 runtime after upgrade, verify
+  controlled foreign keys and prove a rejected invalid legacy ID creates no catalogue tables.
+- **Scope:** no scanning, filesystem traversal, ffprobe, fingerprint, source lifecycle, API, WebUI,
+  authentication, WAL, worker or scheduling behavior was added. ADR-012 and ADR-013 remain
+  `Proposed`.
 
 ### Task 3.2 — Local source lifecycle and availability
 
