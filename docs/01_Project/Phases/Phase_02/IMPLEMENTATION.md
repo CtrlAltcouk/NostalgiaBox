@@ -177,6 +177,10 @@ On the reference appliance, demonstrate at minimum:
 
 ## Task 2.6 — Input proof and failure behaviour
 
+**Implementation status:** complete. Automated Debian 13 validation and all isolated reference-Dell
+proofs passed: physical remote mapping, remote-to-real-MPV pause/resume, controlled missing/corrupt
+media, bounded player-loss recovery, and same-entry/cross-boundary wall-clock rejoin.
+
 ### Objectives
 
 Prove the input abstraction and core failure paths without building the final TV interface.
@@ -195,6 +199,29 @@ Prove the input abstraction and core failure paths without building the final TV
 - changing the physical key mapping does not require editing timeline/playback business logic;
 - missing/corrupt media does not crash the whole core process unexpectedly;
 - player process loss is detectable and recoverable/retryable according to the documented proof policy.
+
+### Implemented Task 2.6 shape
+
+- `application.input` defines `InputAction`, `InputOutcome` and the MPV-agnostic application input
+  controller.
+- `input.profile` contains the dedicated Nordic 1915:1025 Consumer Control profile; changing the
+  raw binding does not affect runtime, timeline, persistence or playback command construction.
+- `input.linux` lazily loads optional `evdev==1.9.3`, opens an explicit operator path and emits one
+  action only for key press.
+- `nostalgiabox-input-proof` requires explicit device and MPV socket paths, attaches to both, reports
+  mapped actions/results and closes resources on Ctrl+C. It neither uses a database nor owns MPV.
+- MPV load confirmation consumes structured `start-file`, `file-loaded` and matching `end-file`
+  events behind the playback boundary. `PlayerMediaLoadError` identifies accepted commands whose
+  media subsequently fails to load.
+- `ChannelRuntime` retains controlled failure state and the original typed cause. Known failed
+  media is not retried within the same scheduled entry; a later entry or explicit resync may retry.
+- Player health and reconnect attempts use separate five-second bounded cadences. Recovery forces a
+  new timeline load and wall-clock resolution before playback is loaded.
+- `GET /runtime` remains read-only and adds an optional sanitized failure projection. `/health` is
+  unchanged.
+
+Task 2.6 does not add final TV controls, input configuration UI, process supervision, systemd
+units, suspend hooks, database migrations, schedule mutation or fallback/skip policy.
 
 ## Task 2.7 — Phase 2 validation and closure
 

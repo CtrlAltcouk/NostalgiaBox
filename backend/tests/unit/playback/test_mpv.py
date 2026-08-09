@@ -1,27 +1,48 @@
 """Tests for MPV command mapping and position conversion."""
 
+from collections.abc import Callable
 from datetime import timedelta
 
 import pytest
 
-from nostalgiabox.application.player import PlayerProtocolError, PlayerState
+from nostalgiabox.application.player import PlayerMediaLoadError, PlayerProtocolError, PlayerState
 from nostalgiabox.playback.mpv import (
     MpvPlayer,
     mpv_seconds_to_timedelta,
     timedelta_to_mpv_seconds,
 )
-from nostalgiabox.playback.transport import JsonValue
+from nostalgiabox.playback.transport import JsonValue, MpvEvent
 
 
 class FakeCommandTransport:
-    def __init__(self, responses: list[JsonValue] | None = None) -> None:
+    def __init__(
+        self,
+        responses: list[JsonValue] | None = None,
+        events: list[MpvEvent] | None = None,
+    ) -> None:
         self.commands: list[list[JsonValue]] = []
         self.responses = list(responses or [])
+        self.events = list(
+            events
+            or [
+                MpvEvent("start-file", {"playlist_entry_id": 17}),
+                MpvEvent("file-loaded", {}),
+            ]
+        )
         self.closed = False
 
     def command(self, command: list[JsonValue]) -> JsonValue:
         self.commands.append(command)
         return self.responses.pop(0) if self.responses else None
+
+    def drain_events(self) -> tuple[MpvEvent, ...]:
+        return ()
+
+    def wait_for_event(self, predicate: Callable[[MpvEvent], bool]) -> MpvEvent:
+        for index, event in enumerate(self.events):
+            if predicate(event):
+                return self.events.pop(index)
+        raise AssertionError("no scripted MPV event matched")
 
     def close(self) -> None:
         self.closed = True
@@ -71,6 +92,48 @@ def test_load_at_position_uses_structured_loadfile_options() -> None:
     player.load(awkward_path, timedelta(seconds=12, microseconds=345_678))
 
     assert transport.commands == [["loadfile", awkward_path, "replace", -1, {"start": "12.345678"}]]
+
+
+def test_load_waits_for_matching_structured_success_event() -> None:
+    transport = FakeCommandTransport(
+        events=[
+            MpvEvent("end-file", {"playlist_entry_id": 4, "reason": "stop"}),
+            MpvEvent("start-file", {"playlist_entry_id": 5}),
+            MpvEvent("file-loaded", {}),
+        ]
+    )
+
+    MpvPlayer(transport).load("/proof/valid.mkv")
+
+    assert [event.name for event in transport.events] == ["end-file"]
+
+
+def test_load_error_event_becomes_typed_media_failure() -> None:
+    transport = FakeCommandTransport(
+        events=[
+            MpvEvent("start-file", {"playlist_entry_id": 8}),
+            MpvEvent(
+                "end-file",
+                {
+                    "playlist_entry_id": 8,
+                    "reason": "error",
+                    "file_error": "loading failed",
+                },
+            ),
+        ]
+    )
+
+    with pytest.raises(PlayerMediaLoadError, match="loading failed") as raised:
+        MpvPlayer(transport).load("/proof/corrupt.bin")
+
+    assert raised.value.player_error == "loading failed"
+
+
+def test_load_rejects_malformed_start_event() -> None:
+    transport = FakeCommandTransport(events=[MpvEvent("start-file", {})])
+
+    with pytest.raises(PlayerProtocolError, match="playlist_entry_id"):
+        MpvPlayer(transport).load("/proof/media.mkv")
 
 
 def test_seek_uses_absolute_exact_semantics() -> None:

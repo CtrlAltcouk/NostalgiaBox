@@ -7,17 +7,31 @@ from fastapi.testclient import TestClient
 
 from nostalgiabox.api import create_app
 from nostalgiabox.api.routes import runtime as runtime_route
-from nostalgiabox.application.runtime import RuntimeAction, RuntimeSnapshot
+from nostalgiabox.application.player import PlayerMediaLoadError
+from nostalgiabox.application.runtime import (
+    RuntimeAction,
+    RuntimeFailure,
+    RuntimeFailureCategory,
+    RuntimeSnapshot,
+)
 from nostalgiabox.config.settings import Settings
 from nostalgiabox.domain.models import ChannelId, MediaItemId, TimelineEntryId
 
 
 class SnapshotProvider:
-    def __init__(self, snapshot: RuntimeSnapshot | None) -> None:
+    def __init__(
+        self,
+        snapshot: RuntimeSnapshot | None,
+        failure: RuntimeFailure | None = None,
+    ) -> None:
         self.snapshot = snapshot
+        self.failure = failure
 
     def get_snapshot(self) -> RuntimeSnapshot | None:
         return self.snapshot
+
+    def get_failure(self) -> RuntimeFailure | None:
+        return self.failure
 
 
 def test_application_factory_creates_expected_routes() -> None:
@@ -45,7 +59,7 @@ def test_runtime_endpoint_before_tune_is_explicitly_inactive() -> None:
         response = client.get("/runtime")
 
     assert response.status_code == 200
-    assert response.json() == {"active": False, "snapshot": None}
+    assert response.json() == {"active": False, "snapshot": None, "failure": None}
 
 
 def test_runtime_endpoint_exposes_latest_snapshot_after_tune() -> None:
@@ -58,6 +72,7 @@ def test_runtime_endpoint_exposes_latest_snapshot_after_tune() -> None:
     assert response.status_code == 200
     assert response.json() == {
         "active": True,
+        "failure": None,
         "snapshot": {
             "channel_id": "channel-001",
             "channel_number": 1,
@@ -71,6 +86,38 @@ def test_runtime_endpoint_exposes_latest_snapshot_after_tune() -> None:
             "last_action": "initial_tune",
         },
     }
+
+
+def test_runtime_endpoint_exposes_controlled_failure_without_internal_cause() -> None:
+    snapshot = _snapshot()
+    provider = SnapshotProvider(
+        snapshot,
+        RuntimeFailure(
+            category=RuntimeFailureCategory.MEDIA_LOAD,
+            message="player could not load media: loading failed",
+            player_failure_type="PlayerMediaLoadError",
+            channel_id=snapshot.channel_id,
+            timeline_entry_id=snapshot.timeline_entry_id,
+            media_item_id=snapshot.media_item_id,
+            occurred_at_utc=snapshot.now_utc,
+            original_cause=PlayerMediaLoadError("loading failed"),
+        ),
+    )
+    app = create_app(Settings(environment="test"), provider)
+
+    with TestClient(app) as client:
+        payload = client.get("/runtime").json()
+
+    assert payload["failure"] == {
+        "category": "media_load",
+        "message": "player could not load media: loading failed",
+        "player_failure_type": "PlayerMediaLoadError",
+        "channel_id": "channel-001",
+        "timeline_entry_id": "entry-b",
+        "media_item_id": "media-b",
+        "occurred_at_utc": "2026-08-08T12:12:30.123456Z",
+    }
+    assert "original_cause" not in payload["failure"]
 
 
 def test_runtime_route_contains_no_scheduling_or_player_logic() -> None:

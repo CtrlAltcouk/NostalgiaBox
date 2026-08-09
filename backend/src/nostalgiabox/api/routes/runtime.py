@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-from nostalgiabox.application.runtime import RuntimeSnapshot, RuntimeStateProvider
+from nostalgiabox.application.runtime import RuntimeFailure, RuntimeSnapshot, RuntimeStateProvider
 
 
 class RuntimeSnapshotResponse(BaseModel):
@@ -23,11 +23,24 @@ class RuntimeSnapshotResponse(BaseModel):
     last_action: str
 
 
+class RuntimeFailureResponse(BaseModel):
+    """Path-free, stack-free projection of one controlled runtime failure."""
+
+    category: str
+    message: str
+    player_failure_type: str | None
+    channel_id: str
+    timeline_entry_id: str
+    media_item_id: str
+    occurred_at_utc: datetime
+
+
 class RuntimeStateResponse(BaseModel):
     """Explicit active/inactive runtime observation result."""
 
     active: bool
     snapshot: RuntimeSnapshotResponse | None
+    failure: RuntimeFailureResponse | None = None
 
 
 def create_runtime_router(provider: RuntimeStateProvider | None) -> APIRouter:
@@ -37,9 +50,19 @@ def create_runtime_router(provider: RuntimeStateProvider | None) -> APIRouter:
     @router.get("/runtime", response_model=RuntimeStateResponse)
     def runtime_state() -> RuntimeStateResponse:
         snapshot = None if provider is None else provider.get_snapshot()
+        failure_getter = None if provider is None else getattr(provider, "get_failure", None)
+        failure = None if failure_getter is None else failure_getter()
         if snapshot is None:
-            return RuntimeStateResponse(active=False, snapshot=None)
-        return RuntimeStateResponse(active=True, snapshot=_response_snapshot(snapshot))
+            return RuntimeStateResponse(
+                active=False,
+                snapshot=None,
+                failure=None if failure is None else _response_failure(failure),
+            )
+        return RuntimeStateResponse(
+            active=True,
+            snapshot=_response_snapshot(snapshot),
+            failure=None if failure is None else _response_failure(failure),
+        )
 
     return router
 
@@ -61,3 +84,15 @@ def _response_snapshot(snapshot: RuntimeSnapshot) -> RuntimeSnapshotResponse:
 
 def _timedelta_microseconds(value: timedelta) -> int:
     return (value.days * 86_400 + value.seconds) * 1_000_000 + value.microseconds
+
+
+def _response_failure(failure: RuntimeFailure) -> RuntimeFailureResponse:
+    return RuntimeFailureResponse(
+        category=failure.category.value,
+        message=failure.message,
+        player_failure_type=failure.player_failure_type,
+        channel_id=failure.channel_id.value,
+        timeline_entry_id=failure.timeline_entry_id.value,
+        media_item_id=failure.media_item_id.value,
+        occurred_at_utc=failure.occurred_at_utc,
+    )

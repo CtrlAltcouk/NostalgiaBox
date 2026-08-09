@@ -24,11 +24,15 @@ dev = [
   "ruff==0.12.11",
   "tzdata==2026.3",
 ]
+linux-input = [
+  "evdev==1.9.3; sys_platform == 'linux'",
+]
 
 [project.scripts]
 nostalgiabox-seed = "nostalgiabox.seed.cli:main"
 nostalgiabox-mpv-validate = "nostalgiabox.playback.validate:main"
 nostalgiabox-channel-proof = "nostalgiabox.proof.cli:main"
+nostalgiabox-input-proof = "nostalgiabox.input.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

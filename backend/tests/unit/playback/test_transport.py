@@ -118,6 +118,30 @@ def test_event_before_response_is_queued_not_returned() -> None:
     assert transport.drain_events() == ()
 
 
+def test_wait_for_event_consumes_matching_event_and_preserves_others() -> None:
+    unrelated = b'{"event":"end-file","playlist_entry_id":1,"reason":"stop"}\n'
+    target = b'{"event":"start-file","playlist_entry_id":2}\n'
+    transport = _transport(ScriptedSocket([_response(1) + unrelated + target]))
+    transport.command(["loadfile", "/proof/media.mkv"])
+
+    event = transport.wait_for_event(lambda item: item.name == "start-file")
+
+    assert event.payload["playlist_entry_id"] == 2
+    assert [item.name for item in transport.drain_events()] == ["end-file"]
+
+
+def test_wait_for_event_preserves_interleaved_command_response() -> None:
+    target = b'{"event":"file-loaded"}\n'
+    sock = ScriptedSocket([_response(2, data="later") + target, _response(1)])
+    transport = _transport(sock)
+
+    event = transport.wait_for_event(lambda item: item.name == "file-loaded")
+
+    assert event.name == "file-loaded"
+    assert transport.command(["first"]) is None
+    assert transport.command(["second"]) == "later"
+
+
 def test_event_between_out_of_order_responses_never_becomes_response() -> None:
     event = b'{"event":"property-change","name":"pause","data":true}\n'
     sock = ScriptedSocket([_response(2, data="two") + event + _response(1, data="one")])

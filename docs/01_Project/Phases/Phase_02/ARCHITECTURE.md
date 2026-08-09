@@ -257,6 +257,58 @@ Linux evdev / keyboard / remote
 
 The existing Phase 1 reference remote profile remains development input. A replacement wake-capable remote can be added later without changing the core command model.
 
+#### Task 2.6 logical input boundary
+
+`application.input.InputAction` owns the logical action vocabulary and currently contains only
+`PLAY_PAUSE`. `ApplicationInputController` depends solely on the `Player` port: playing becomes
+paused, paused becomes playing, and idle is an explicit no-op because input alone must not select
+media. Adding later logical actions does not change how Linux events are read.
+
+`input.profile.RemoteProfile` owns physical key mappings. The Phase 2 reference profile is named
+`nordic-1915-1025-consumer-control` and maps Linux `KEY_PLAYPAUSE` (164) to logical
+`PLAY_PAUSE`. USB identity, raw key values and profile names remain input-infrastructure details.
+`input.linux.LinuxInputSource` opens only an operator-supplied path, accepts stable
+`/dev/input/by-id/...` paths, translates only EV_KEY press values, and ignores release, repeat,
+unknown keys and non-key events. No event-number path is a source-code default.
+
+The adapter imports `python-evdev` lazily. It is pinned as the optional `linux-input` extra, so the
+ordinary Windows development installation and all automated tests require neither evdev nor a real
+input device.
+
+### Task 2.6 controlled failure and recovery model
+
+`RuntimeFailure` is the application-owned diagnostic state. It retains the original typed
+exception internally while the read-only API exposes only category, message, player failure type,
+channel/timeline/media IDs and occurrence time. It never exposes paths, ORM values, raw MPV JSON,
+Linux events or stack traces. The categories preserve these distinctions:
+
+```text
+media_location
+media_load
+player_unavailable
+player_timeout
+player_protocol
+player_command
+```
+
+MPV `loadfile` command success means only that playlist manipulation was accepted. Following the
+[official MPV event semantics](https://mpv.io/manual/stable/#list-of-events), the adapter therefore
+waits inside playback infrastructure for `start-file`, captures its playlist-entry ID, then waits
+for either `file-loaded` or a matching `end-file`. A matching error end event becomes
+`PlayerMediaLoadError`; command rejection, socket loss, timeout and malformed IPC remain their
+existing distinct types. Only structured JSON IPC events are used.
+
+After a missing location or unplayable-media failure, the runtime records the scheduled entry and
+suppresses repeat attempts for that same entry. It neither skips the programme nor alters the
+database. An explicit resynchronisation or a later scheduled entry permits a new attempt.
+
+Normal active playback health is checked at most every five seconds. After an infrastructure
+failure, health/reconnection is retried at most every five seconds; unchanged waiting is not logged
+at info level. The application never spawns, kills or supervises MPV. Once the independently
+supervised player is healthy, the runtime reloads the timeline, resolves current wall-clock truth
+and loads the entry live now at its recalculated offset, even if a boundary passed while MPV was
+absent.
+
 ## Minimum domain model
 
 ### MediaItem

@@ -115,6 +115,35 @@ class MpvJsonIpcTransport:
             self._events.clear()
             return events
 
+    def wait_for_event(self, predicate: Callable[[MpvEvent], bool]) -> MpvEvent:
+        """Wait for one matching structured event while preserving other messages."""
+        with self._lock:
+            for index, event in enumerate(self._events):
+                if predicate(event):
+                    return self._events.pop(index)
+
+            deadline = time.monotonic() + self._timeout
+            while True:
+                if time.monotonic() >= deadline:
+                    raise self._timeout_error()
+                message = self._read_message(deadline)
+                event_name = message.get("event")
+                if event_name is not None:
+                    if not isinstance(event_name, str):
+                        raise PlayerProtocolError("MPV event name must be a string")
+                    event = MpvEvent(event_name, message.copy())
+                    if predicate(event):
+                        return event
+                    self._events.append(event)
+                    continue
+
+                response_id = message.get("request_id")
+                if isinstance(response_id, bool) or not isinstance(response_id, int):
+                    raise PlayerProtocolError("MPV command response has no valid request_id")
+                if response_id in self._pending_responses:
+                    raise PlayerProtocolError(f"MPV returned duplicate response id {response_id}")
+                self._pending_responses[response_id] = message
+
     def close(self) -> None:
         """Close the persistent connection; a later command may reconnect."""
         with self._lock:

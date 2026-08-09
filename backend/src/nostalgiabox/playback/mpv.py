@@ -3,18 +3,23 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 from datetime import timedelta
 from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
 from typing import Protocol
 
-from nostalgiabox.application.player import PlayerProtocolError, PlayerState
-from nostalgiabox.playback.transport import JsonValue, MpvJsonIpcTransport
+from nostalgiabox.application.player import PlayerMediaLoadError, PlayerProtocolError, PlayerState
+from nostalgiabox.playback.transport import JsonValue, MpvEvent, MpvJsonIpcTransport
 
 
 class CommandTransport(Protocol):
     """Private command surface used to isolate adapter tests from sockets."""
 
     def command(self, command: list[JsonValue]) -> JsonValue: ...
+
+    def drain_events(self) -> tuple[MpvEvent, ...]: ...
+
+    def wait_for_event(self, predicate: Callable[[MpvEvent], bool]) -> MpvEvent: ...
 
     def close(self) -> None: ...
 
@@ -58,12 +63,35 @@ class MpvPlayer:
         return cls(MpvJsonIpcTransport(socket_path, command_timeout_seconds))
 
     def load(self, path: str, position: timedelta = timedelta()) -> None:
-        """Replace current media and apply a per-file absolute start position."""
+        """Replace media and wait for structured confirmation that loading completed."""
         if not path:
             raise ValueError("media path must not be empty")
         seconds = timedelta_to_mpv_seconds(position)
         options: dict[str, JsonValue] = {"start": _format_seconds(seconds)}
+        self._transport.drain_events()
         self._transport.command(["loadfile", path, "replace", -1, options])
+        started = self._transport.wait_for_event(lambda event: event.name == "start-file")
+        playlist_entry_id = started.payload.get("playlist_entry_id")
+        if isinstance(playlist_entry_id, bool) or not isinstance(playlist_entry_id, int):
+            raise PlayerProtocolError("MPV start-file event has no valid playlist_entry_id")
+        outcome = self._transport.wait_for_event(
+            lambda event: event.name == "file-loaded"
+            or (
+                event.name == "end-file"
+                and event.payload.get("playlist_entry_id") == playlist_entry_id
+            )
+        )
+        if outcome.name == "file-loaded":
+            return
+        reason = outcome.payload.get("reason")
+        if not isinstance(reason, str):
+            raise PlayerProtocolError("MPV end-file event has no valid reason")
+        detail = outcome.payload.get("file_error")
+        if not isinstance(detail, str) or not detail.strip():
+            detail = outcome.payload.get("error")
+        if not isinstance(detail, str) or not detail.strip():
+            detail = f"load ended with reason {reason!r}"
+        raise PlayerMediaLoadError(detail)
 
     def seek(self, position: timedelta) -> None:
         """Seek to an absolute, exact position from media start."""

@@ -7,12 +7,20 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from nostalgiabox.application.player import PlayerUnavailableError
+from nostalgiabox.application.player import (
+    PlayerCommandError,
+    PlayerMediaLoadError,
+    PlayerProtocolError,
+    PlayerTimeoutError,
+    PlayerUnavailableError,
+)
 from nostalgiabox.application.runtime import (
     ChannelRuntime,
     ChannelUnavailableError,
     MediaLocationUnavailableError,
+    PlayerRecoveryPolicy,
     RuntimeAction,
+    RuntimeFailureCategory,
     RuntimeNotActiveError,
     RuntimeTimelineNotCoveredError,
 )
@@ -224,7 +232,150 @@ def test_player_failure_remains_typed_and_observable() -> None:
     with pytest.raises(PlayerUnavailableError, match="MPV unavailable"):
         runtime.synchronise(ChannelId("channel-001"))
 
-    assert runtime.get_snapshot() is None
+    assert runtime.get_snapshot() is not None
+    failure = runtime.get_failure()
+    assert failure is not None
+    assert failure.category is RuntimeFailureCategory.PLAYER_UNAVAILABLE
+    assert failure.player_failure_type == "PlayerUnavailableError"
+    assert failure.original_cause is not None
+
+
+def test_media_load_failure_is_recorded_and_same_entry_retry_is_suppressed() -> None:
+    runtime, player, clock, _ = _runtime(START)
+    player.fail_next(PlayerMediaLoadError("loading failed"))
+
+    with pytest.raises(PlayerMediaLoadError):
+        runtime.synchronise(ChannelId("channel-001"))
+    clock.advance(timedelta(seconds=1))
+    snapshot = runtime.tick()
+
+    assert snapshot.last_action is RuntimeAction.MEDIA_RETRY_SUPPRESSED
+    assert [call.operation for call in player.history] == []
+    failure = runtime.get_failure()
+    assert failure is not None
+    assert failure.category is RuntimeFailureCategory.MEDIA_LOAD
+    assert isinstance(failure.original_cause, PlayerMediaLoadError)
+
+
+def test_failed_media_is_attempted_again_only_after_later_entry_boundary() -> None:
+    runtime, player, clock, _ = _runtime(START + timedelta(minutes=9))
+    player.fail_next(PlayerMediaLoadError("corrupt media"))
+    with pytest.raises(PlayerMediaLoadError):
+        runtime.synchronise(ChannelId("channel-001"))
+    clock.advance(timedelta(seconds=30))
+    runtime.tick()
+    clock.advance(timedelta(seconds=30))
+
+    snapshot = runtime.tick()
+
+    assert snapshot.media_item_id == MediaItemId("media-b")
+    assert [call.operation for call in player.history] == ["load"]
+    assert runtime.get_failure() is None
+
+
+@pytest.mark.parametrize(
+    ("error", "category"),
+    [
+        (PlayerUnavailableError("gone"), RuntimeFailureCategory.PLAYER_UNAVAILABLE),
+        (PlayerTimeoutError("late"), RuntimeFailureCategory.PLAYER_TIMEOUT),
+        (PlayerProtocolError("bad data"), RuntimeFailureCategory.PLAYER_PROTOCOL),
+        (
+            PlayerCommandError("loadfile", "command failed"),
+            RuntimeFailureCategory.PLAYER_COMMAND,
+        ),
+    ],
+)
+def test_player_infrastructure_failures_remain_distinguishable(
+    error: PlayerUnavailableError | PlayerTimeoutError | PlayerProtocolError | PlayerCommandError,
+    category: RuntimeFailureCategory,
+) -> None:
+    runtime, player, _, _ = _runtime(START)
+    player.fail_next(error)
+
+    with pytest.raises(type(error)):
+        runtime.synchronise(ChannelId("channel-001"))
+
+    failure = runtime.get_failure()
+    assert failure is not None
+    assert failure.category is category
+    assert failure.original_cause is error
+
+
+def test_missing_media_failure_has_ids_and_no_stacktrace_log() -> None:
+    timeline = _timeline()
+    runtime = ChannelRuntime(
+        FakeClock(START), FakeTimelineSource(timeline), FakeMediaLocationSource({}), FakePlayer()
+    )
+    records: list[logging.LogRecord] = []
+
+    class CaptureHandler(logging.Handler):
+        def emit(self, record: logging.LogRecord) -> None:
+            records.append(record)
+
+    runtime_logger = logging.getLogger("nostalgiabox.application.runtime")
+    handler = CaptureHandler()
+    previous_level = runtime_logger.level
+    previous_disabled = runtime_logger.disabled
+    runtime_logger.addHandler(handler)
+    runtime_logger.setLevel(logging.ERROR)
+    runtime_logger.disabled = False
+
+    try:
+        with pytest.raises(MediaLocationUnavailableError):
+            runtime.synchronise(timeline.channel.id)
+    finally:
+        runtime_logger.removeHandler(handler)
+        runtime_logger.setLevel(previous_level)
+        runtime_logger.disabled = previous_disabled
+
+    record = records[-1]
+    assert record.__dict__["failure_category"] == "media_location"
+    assert record.__dict__["channel_id"] == "channel-001"
+    assert record.__dict__["timeline_entry_id"].endswith(":0")
+    assert record.__dict__["media_item_id"] == "media-a"
+    assert record.exc_info is None
+
+
+def test_player_loss_recovery_is_cadenced_and_reloads_current_offset() -> None:
+    player = CountingPlayer()
+    runtime, clock = _runtime_with_player(START + timedelta(minutes=1), player)
+    runtime.synchronise(ChannelId("channel-001"))
+    clock.advance(timedelta(seconds=5))
+    player.fail_next(PlayerUnavailableError("socket disappeared"))
+
+    with pytest.raises(PlayerUnavailableError):
+        runtime.tick()
+    checks_after_failure = player.health_checks
+    waiting = runtime.tick()
+
+    assert waiting.last_action is RuntimeAction.PLAYER_RECOVERY_WAIT
+    assert player.health_checks == checks_after_failure
+
+    clock.advance(timedelta(seconds=5))
+    recovered = runtime.tick()
+
+    assert recovered.last_action is RuntimeAction.PLAYER_RECOVERED
+    assert recovered.media_item_id == MediaItemId("media-a")
+    assert player.history[-1].position == timedelta(minutes=1, seconds=10)
+    assert runtime.get_failure() is None
+
+
+def test_player_recovery_after_boundary_loads_new_wall_clock_entry() -> None:
+    player = CountingPlayer()
+    runtime, clock = _runtime_with_player(START + timedelta(minutes=9, seconds=50), player)
+    runtime.synchronise(ChannelId("channel-001"))
+    clock.advance(timedelta(seconds=5))
+    player.fail_next(PlayerUnavailableError("socket disappeared"))
+    with pytest.raises(PlayerUnavailableError):
+        runtime.tick()
+    clock.advance(timedelta(seconds=10))
+
+    recovered = runtime.tick()
+
+    assert recovered.last_action is RuntimeAction.PLAYER_RECOVERED
+    assert recovered.media_item_id == MediaItemId("media-b")
+    assert player.history[-1].path == "/proof/media-b.mkv"
+    assert player.history[-1].position == timedelta(seconds=5)
 
 
 def test_runtime_snapshot_contains_exact_diagnostic_values() -> None:
@@ -309,6 +460,38 @@ def _runtime(
         clock,
         timeline_source,
     )
+
+
+class CountingPlayer(FakePlayer):
+    def __init__(self) -> None:
+        super().__init__()
+        self.health_checks = 0
+
+    def check_health(self) -> None:
+        self.health_checks += 1
+        super().check_health()
+
+
+def _runtime_with_player(now: datetime, player: FakePlayer) -> tuple[ChannelRuntime, FakeClock]:
+    timeline = _timeline()
+    clock = FakeClock(now)
+    runtime = ChannelRuntime(
+        clock,
+        FakeTimelineSource(timeline),
+        FakeMediaLocationSource(
+            {
+                MediaItemId("media-a"): "/proof/media-a.mkv",
+                MediaItemId("media-b"): "/proof/media-b.mkv",
+                MediaItemId("media-c"): "/proof/media-c.mkv",
+            }
+        ),
+        player,
+        PlayerRecoveryPolicy(
+            health_check_interval=timedelta(seconds=5),
+            recovery_interval=timedelta(seconds=5),
+        ),
+    )
+    return runtime, clock
 
 
 def _timeline() -> ChannelTimeline:

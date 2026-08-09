@@ -26,9 +26,10 @@
 | Correct mid-programme tune offset | PASS | Automated exact-offset coverage and the reference-Dell live MPV proof both passed; observed initial tune joined approximately 26.03 seconds into the scheduled programme. |
 | Restart/rejoin behaviour | PASS | A new proof process ignored prior player position, recalculated wall-clock truth and joined Programme 07 approximately 1.593 seconds after its scheduled start. |
 | Suspend/live re-sync path | PARTIAL | Forced same-entry and crossed-boundary resynchronisation pass with simulated lost time. Actual system suspend/resume hooks are deliberately outside Task 2.5 and remain unimplemented. |
-| Input abstraction proof | BLOCKED | Not yet implemented. |
-| Missing/corrupt media handling | BLOCKED | Not yet implemented. |
-| Player failure handling | BLOCKED | Not yet implemented. |
+| Automated Task 2.6 input/failure proof | PASS | Logical input/profile translation, press-only semantics, application PLAY_PAUSE dispatch, structured MPV load completion, typed failures, same-entry media suppression and bounded player recovery pass deterministically without Linux input hardware or MPV. |
+| Reference-Dell input abstraction proof | PASS | Nordic 1915:1025 Consumer Control `KEY_PLAYPAUSE` produced exactly one logical `play_pause` action per press; release did not duplicate it. The same physical control visibly paused/resumed isolated real MPV through the complete logical abstraction. |
+| Missing/corrupt media handling | PASS | Isolated missing-path and corrupt-file loads became typed `PlayerMediaLoadError`/`media_load` failures with structured context, no crash, skip, database mutation, fabricated offset or tight retry loop. |
+| Player failure handling | PASS | Isolated MPV loss produced distinct `PlayerUnavailableError` failures at approximately five-second cadence. Independent MPV restart triggered wall-clock resynchronisation at fresh offsets within the same entry and after crossing a boundary. |
 | Timezone/DST tests | PARTIAL | Task 2.2 UTC resolution passed representative `Europe/London` spring-forward and autumn-fold cases. Local schedule authoring and full Phase 2 integration evidence remain. |
 
 ### Task 2.2 automated evidence
@@ -206,6 +207,153 @@ loading, real wall-clock resolution, exact live offsets, Player-to-MPV JSON IPC 
 boundary-only advancement and fresh-process wall-clock rejoin. Actual system suspend/resume
 integration remains outside Task 2.5. Phase 2 remains in progress because later planned tasks have
 not been completed.
+
+### Task 2.6 automated evidence
+
+The Windows Python 3.13 development suite passes 191 tests with the existing AF_UNIX integration
+test skipped on that environment. Task 2.6 adds deterministic coverage for:
+
+- raw Nordic `KEY_PLAYPAUSE` press mapping exactly once while release, repeat, unknown keys and
+  non-key events are ignored;
+- profile remapping without application-controller changes, and source inspection proving the
+  controller has no evdev dependency while the Linux adapter has no timeline, persistence or MPV
+  dependency;
+- `PLAY_PAUSE` producing exactly one pause while playing, one resume while paused and an explicit
+  no-op while idle;
+- explicit proof arguments, fake input/player operation and clean resource close on Ctrl+C;
+- MPV transport event waiting with interleaved responses, preservation of unrelated events,
+  `start-file` correlation, `file-loaded` success and matching `end-file` media failure;
+- distinct media-load, player-unavailable, timeout, protocol and command failure categories with
+  original typed causes retained internally;
+- structured failure records containing channel/timeline/media IDs without exception trace output;
+- suppression of repeated loads for a known-failed scheduled entry and a fresh attempt only on an
+  explicit resync or later entry;
+- five-second player health/recovery cadence without busy looping, plus FakeClock recovery within
+  the same entry at a recalculated offset and after a boundary into the newly live entry;
+- sanitized, observation-only `/runtime` failure projection and unchanged `/health` behaviour.
+
+Reference Debian 13 validation under Python 3.13.5 passed all 192 tests, including the AF_UNIX test
+skipped on Windows. Ruff lint and format checks passed, and strict mypy passed over 78 source files.
+Building the optional evdev dependency on the Dell required `linux-libc-dev`, headers for the
+running kernel, GCC/G++, `build-essential` and `python3.13-dev`; installation then succeeded. No
+automated test uses a real input device, MPV, user media, production database or real-time sleep.
+
+### Task 2.6 isolated reference-Dell validation
+
+Task 2.6 reference acceptance is **PASS** on the Debian 13 Dell. All validation used isolated
+temporary resources and operator-owned media:
+
+```text
+Database: /tmp/nostalgiabox-phase26.db
+Manifest: /tmp/nostalgiabox-phase26.json
+MPV socket: /tmp/nostalgiabox-phase26-mpv.sock
+MPV log: /tmp/nostalgiabox-phase26-mpv.log
+Corrupt file: /tmp/nostalgiabox-corrupt-test.bin
+```
+
+The production database/socket, `/opt/nostalgiabox/launch.sh`, autologin, X startup, boot
+configuration, systemd supervision and existing remote power/suspend behaviour were not modified.
+The proof tooling did not launch or supervise replacement MPV; every isolated restart was performed
+independently by the operator.
+
+#### Proof A — reference remote input mapping — PASS
+
+The receiver identified as USB 1915:1025, `USB Composite Device USB Composite Device Consumer
+Control`. It appeared as `/dev/input/event0` during this session, but that observation is not a
+stable or hard-coded production path. Raw evdev reported `KEY_PLAYPAUSE` code 164 with value 1 on
+press and value 0 on release.
+
+One physical press produced exactly one logical result:
+
+```text
+input_profile:       nordic-1915-1025-consumer-control
+logical_input_action: play_pause
+outcome:              ignored_idle
+```
+
+Release produced no duplicate action, proving the profile boundary and press-only semantics.
+
+#### Proof B — physical remote to real MPV — PASS
+
+An isolated fullscreen VA-API MPV used `/tmp/nostalgiabox-phase26-mpv.sock`, `--no-audio` and an
+operator-owned Phineas and Ferb test video. Repeated physical Play/Pause presses produced alternating
+`paused` and `resumed` outcomes, with matching visible pause/resume on the television. This proves:
+
+```text
+physical remote
+  -> Linux evdev adapter
+  -> Nordic remote profile
+  -> InputAction.PLAY_PAUSE
+  -> ApplicationInputController
+  -> Player abstraction
+  -> real MPV
+```
+
+#### Proof C — missing scheduled media — PASS
+
+The active item `phase26-missing` deliberately referenced the nonexistent path
+`/tmp/nostalgiabox-definitely-missing-phase26.mkv`. The still-running proof reported:
+
+```text
+action:              controlled_failure
+failure_category:    media_load
+player_failure_type: PlayerMediaLoadError
+media_item_id:       phase26-missing
+message:             player could not load media: loading failed
+```
+
+There was no traceback-driven crash, programme substitution, fabricated zero offset, database
+mutation or half-second reload loop. Same-entry retry suppression behaved as designed.
+
+#### Proof D — corrupt/unplayable media — PASS
+
+MPV rejected `/tmp/nostalgiabox-corrupt-test.bin`. Structured load/event handling produced:
+
+```text
+action:              controlled_failure
+failure_category:    media_load
+player_failure_type: PlayerMediaLoadError
+media_item_id:       phase26-corrupt
+message:             player could not load media: unrecognized file format
+```
+
+There was no terminal/stdout parsing, traceback-driven crash, silent skip or tight retry loop.
+
+#### Proof E — isolated MPV loss and bounded recovery — PASS
+
+Terminating only the isolated MPV produced `player_unavailable` with
+`PlayerUnavailableError`. Failure/recovery checks occurred approximately every five seconds rather
+than at the 0.5-second channel poll rate, proving bounded cadence without a busy retry loop.
+
+During a cross-boundary outage, independently restarting MPV on the same socket caused the existing
+runtime to resolve Programme 03 rather than stale pre-outage content:
+
+```text
+action:          player_recovered
+media_item_id:   phase26-recovery-03
+now_utc:         2026-08-09T14:13:36.294598+00:00
+entry_start_utc: 2026-08-09T14:13:26.135109+00:00
+live_offset_us:  10159489
+```
+
+The recovered offset was approximately 10.159 seconds into the newly live entry.
+
+A second outage remained within `phase26-recovery-05`, scheduled from
+`2026-08-09T14:15:26.135109+00:00` through `2026-08-09T14:16:26.135109+00:00`. Controlled failures
+were observed at approximately 14:15:51, 14:15:56, 14:16:01, 14:16:06 and 14:16:11. Independent
+MPV restart then produced:
+
+```text
+action:          player_recovered
+media_item_id:   phase26-recovery-05
+now_utc:         2026-08-09T14:16:16.524816+00:00
+entry_start_utc: 2026-08-09T14:15:26.135109+00:00
+live_offset_us:  50389707
+```
+
+The recovered offset was approximately 50.390 seconds into the same scheduled entry. Both recovery
+cases recalculated current schedule truth and a fresh live offset; neither used a stale playback
+cursor. Task 2.6 is complete, but Phase 2 remains in progress and Task 2.7 has not begun.
 
 ## Unit-test requirements
 
