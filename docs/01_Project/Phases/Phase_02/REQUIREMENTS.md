@@ -4,6 +4,11 @@
 
 Phase 2 proves the highest-risk software assumption in NostalgiaBox before wider product features are built: one channel must behave like a continuously running real-time television channel and must tune to the correct media item at the correct elapsed position.
 
+**Closure status: Complete — 2026-08-09.** The final requirement-to-implementation and evidence
+mapping is maintained in [`TRACEABILITY.md`](TRACEABILITY.md). It records the explicit Phase 2
+resynchronisation operation separately from later OS resume-hook wiring, and UTC/DST timeline
+correctness separately from later local schedule-authoring UX.
+
 Phase 2 is a proof of architecture, not a throwaway prototype. Components created here must be suitable foundations for the later media catalogue, administration web UI, multi-channel engine and Basic Mode television experience.
 
 ## Scope

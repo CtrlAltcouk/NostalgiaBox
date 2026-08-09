@@ -526,3 +526,14 @@ Exact file names may change during implementation, but domain logic must remain 
 - raw remote events are replaceable behind input profiles;
 - database migrations exist from the first schema;
 - future continuity content extends generic timeline entries rather than forcing a new scheduler architecture.
+
+## Final architecture acceptance
+
+**Accepted and validated — 2026-08-09.** The implemented dependency direction remains domain →
+application ports → infrastructure adapters, with API, persistence, MPV and Linux input details
+outside the pure core. Automated architecture tests verify forbidden imports, module importability
+and exclusive ownership of the reference raw key mapping. Task 2.7 made no production architecture
+change.
+
+The complete evidence mapping, suspend/resynchronisation decision, timezone/DST conclusion and
+Phase 3 handoff constraints are in [`TRACEABILITY.md`](TRACEABILITY.md).
