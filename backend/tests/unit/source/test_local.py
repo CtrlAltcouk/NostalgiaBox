@@ -3,6 +3,7 @@
 import os
 import stat
 from pathlib import Path
+from typing import NoReturn
 
 import pytest
 
@@ -145,6 +146,74 @@ def test_real_unreadable_directory_reports_permission_denied(tmp_path: Path) -> 
 
     assert result.availability is SourceAvailability.PERMISSION_DENIED
     assert result.error_code == "source.permission_denied"
+
+
+@pytest.mark.parametrize("failure_stage", ["resolve", "stat", "scandir"])
+def test_permission_denial_is_classified_at_each_filesystem_stage(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_stage: str,
+) -> None:
+    approved = tmp_path / "media"
+    selected = approved / "selected"
+    selected.mkdir(parents=True)
+    gateway = LocalFilesystemSourceGateway([str(approved)])
+
+    def deny(*args: object, **kwargs: object) -> NoReturn:
+        raise PermissionError
+
+    if failure_stage == "resolve":
+        monkeypatch.setattr(Path, "resolve", deny)
+    elif failure_stage == "stat":
+        monkeypatch.setattr(Path, "stat", deny)
+    else:
+        monkeypatch.setattr(os, "scandir", deny)
+
+    result = gateway.check(str(selected))
+
+    assert result.availability is SourceAvailability.PERMISSION_DENIED
+    assert result.error_code == "source.permission_denied"
+    assert result.error_message == "The configured local source cannot be read by NostalgiaBox."
+
+
+def test_validate_root_sanitizes_permission_denial(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approved = tmp_path / "media"
+    selected = approved / "selected"
+    selected.mkdir(parents=True)
+    gateway = LocalFilesystemSourceGateway([str(approved)])
+
+    def deny(*args: object, **kwargs: object) -> NoReturn:
+        raise PermissionError("raw operating-system detail")
+
+    monkeypatch.setattr(Path, "resolve", deny)
+
+    with pytest.raises(InvalidSourceRootError, match="cannot be inspected") as captured:
+        gateway.validate_root(str(selected))
+
+    assert "raw operating-system detail" not in str(captured.value)
+
+
+def test_miscellaneous_resolution_io_failure_is_sanitized_as_unavailable(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    approved = tmp_path / "media"
+    selected = approved / "selected"
+    selected.mkdir(parents=True)
+    gateway = LocalFilesystemSourceGateway([str(approved)])
+
+    def fail(*args: object, **kwargs: object) -> NoReturn:
+        raise OSError("raw operating-system detail")
+
+    monkeypatch.setattr(Path, "resolve", fail)
+
+    result = gateway.check(str(selected))
+
+    assert result.availability is SourceAvailability.UNAVAILABLE
+    assert result.error_code == "source.unavailable"
+    assert result.error_message is not None
+    assert "raw operating-system detail" not in result.error_message
 
 
 def _symlink_or_skip(link: Path, target: Path) -> None:

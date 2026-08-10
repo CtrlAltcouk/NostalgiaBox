@@ -1,6 +1,7 @@
 """Minimal approved-root filesystem adapter for local source availability."""
 
 import os
+import stat
 from collections.abc import Iterable
 from pathlib import Path
 
@@ -24,6 +25,14 @@ _DEFAULT_PROTECTED_ROOTS = (
 )
 
 
+class _SourcePermissionDeniedError(Exception):
+    """Internal typed signal for sanitized filesystem permission mapping."""
+
+
+class _SourceUnavailableError(Exception):
+    """Internal typed signal for sanitized miscellaneous I/O mapping."""
+
+
 class LocalFilesystemSourceGateway:
     """Resolve and minimally open local roots without scanning their contents."""
 
@@ -45,7 +54,12 @@ class LocalFilesystemSourceGateway:
     def validate_root(self, configured_root: str) -> str:
         """Return a stable lexical absolute path after current canonical validation."""
         lexical_root = _lexical_absolute_path(configured_root)
-        self._resolve_allowed_directory(lexical_root)
+        try:
+            self._resolve_allowed_directory(lexical_root)
+        except (_SourcePermissionDeniedError, _SourceUnavailableError) as error:
+            raise InvalidSourceRootError(
+                "configured local source root cannot be inspected"
+            ) from error
         return str(lexical_root)
 
     def check(self, configured_root: str) -> SourceAvailabilityResult:
@@ -56,7 +70,7 @@ class LocalFilesystemSourceGateway:
             )
             with os.scandir(canonical_root) as entries:
                 next(entries, None)
-        except PermissionError:
+        except (PermissionError, _SourcePermissionDeniedError):
             return SourceAvailabilityResult(
                 SourceAvailability.PERMISSION_DENIED,
                 "source.permission_denied",
@@ -69,7 +83,7 @@ class LocalFilesystemSourceGateway:
                 "The configured local source is missing, not a directory, "
                 "or outside approved roots.",
             )
-        except OSError:
+        except (_SourceUnavailableError, OSError):
             return SourceAvailabilityResult(
                 SourceAvailability.UNAVAILABLE,
                 "source.unavailable",
@@ -80,9 +94,21 @@ class LocalFilesystemSourceGateway:
     def _resolve_allowed_directory(self, lexical_root: Path) -> Path:
         try:
             canonical_root = lexical_root.resolve(strict=True)
-        except (OSError, RuntimeError) as error:
+        except PermissionError as error:
+            raise _SourcePermissionDeniedError from error
+        except (FileNotFoundError, NotADirectoryError, RuntimeError) as error:
             raise InvalidSourceRootError("configured local source root is invalid") from error
-        if not canonical_root.is_dir():
+        except OSError as error:
+            raise _SourceUnavailableError from error
+        try:
+            mode = canonical_root.stat().st_mode
+        except PermissionError as error:
+            raise _SourcePermissionDeniedError from error
+        except (FileNotFoundError, NotADirectoryError) as error:
+            raise InvalidSourceRootError("configured local source root is invalid") from error
+        except OSError as error:
+            raise _SourceUnavailableError from error
+        if not stat.S_ISDIR(mode):
             raise InvalidSourceRootError("configured local source root is not a directory")
         if not any(_contains(root, canonical_root) for root in self._approved_roots):
             raise InvalidSourceRootError("configured local source root is outside approved roots")

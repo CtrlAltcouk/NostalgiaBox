@@ -102,7 +102,7 @@ Rules for every task:
 #### Task 3.2 implementation evidence
 
 - **Development status:** `PARTIAL` pending isolated reference-Dell validation. Windows/Python 3.13
-  passes 279 tests; AF_UNIX, two real directory-symlink cases and the POSIX permission case are
+  passes 287 tests; AF_UNIX, two real directory-symlink cases and the POSIX permission case are
   skipped only where the development platform cannot provide those capabilities.
 - **Lifecycle/application:** explicit create/get/list/edit/check/enable/disable/retire services use
   pure values, short unit-of-work transactions and optimistic positive revisions. Name/root edits do
@@ -119,7 +119,10 @@ Rules for every task:
   symlinks, and re-resolves every availability test. It opens only the directory once with no media
   enumeration or recursion.
 - **Root edits:** an unpopulated source may change root; any `MediaFile` reference produces a typed
-  conflict requiring retire plus a new source identity rather than silently repointing history.
+  conflict requiring retire plus a new source identity rather than silently repointing history. An
+  actual normalized-root change resets availability to `UNKNOWN` and clears the old root's check
+  timestamp and diagnostics without changing enabled/retired state or running a check. Name-only
+  edits and inputs that normalize to the existing root preserve that availability evidence.
 - **Persistence:** revision `20260810_0003` adds only source configuration, independent lifecycle/
   availability state, exact UTC timestamps, sanitized errors and revision/index/check constraints.
   Existing Task 3.1 local or SMB rows retain identity/kind, receive `display_name=id`, remain

@@ -178,10 +178,15 @@ class LocalSourceService:
                 raise SourceRootChangeConflictError(
                     "source root cannot change while media files reference the source"
                 )
+            root_changed = normalized_root != current.configured_root
             updated = replace(
                 current,
                 display_name=display_name,
                 configured_root=normalized_root,
+                availability=(SourceAvailability.UNKNOWN if root_changed else current.availability),
+                last_checked_utc=None if root_changed else current.last_checked_utc,
+                current_error_code=None if root_changed else current.current_error_code,
+                current_error_message=None if root_changed else current.current_error_message,
                 revision=current.revision + 1,
             )
             _store_revision_checked(unit_of_work, updated, current.revision)

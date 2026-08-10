@@ -51,9 +51,15 @@ def test_blank_display_name_is_rejected() -> None:
         service.create_local_source(" ", "/approved/family", enabled=False)
 
 
-def test_name_and_unpopulated_root_edit_preserve_identity() -> None:
-    service, _, gateway = _service()
+def test_available_source_root_change_invalidates_old_check_state() -> None:
+    service, repository, gateway = _service()
     source = service.create_local_source("Old", "/approved/old", enabled=True)
+    checked_at = datetime(2026, 8, 9, 10, tzinfo=UTC)
+    repository.sources[source.id] = replace(
+        source,
+        availability=SourceAvailability.AVAILABLE,
+        last_checked_utc=checked_at,
+    )
     gateway.normalized_roots["/approved/new"] = "/approved/new"
 
     updated = service.update_local_source(
@@ -66,7 +72,69 @@ def test_name_and_unpopulated_root_edit_preserve_identity() -> None:
     assert updated.id == source.id
     assert updated.display_name == "New"
     assert updated.configured_root == "/approved/new"
+    assert updated.availability is SourceAvailability.UNKNOWN
+    assert updated.last_checked_utc is None
+    assert updated.current_error_code is None
+    assert updated.current_error_message is None
+    assert updated.enabled is True
     assert updated.revision == 2
+
+
+def test_failed_source_root_change_clears_stale_check_and_error_state() -> None:
+    service, repository, gateway = _service()
+    source = service.create_local_source("Source", "/approved/old", enabled=False)
+    repository.sources[source.id] = replace(
+        source,
+        availability=SourceAvailability.PERMISSION_DENIED,
+        last_checked_utc=datetime(2026, 8, 9, 10, tzinfo=UTC),
+        current_error_code="source.permission_denied",
+        current_error_message="Sanitized old-root diagnostic.",
+    )
+    gateway.normalized_roots["/approved/new"] = "/approved/new"
+
+    updated = service.update_local_source(
+        source.id,
+        source.revision,
+        display_name="Source",
+        configured_root="/approved/new",
+    )
+
+    assert updated.availability is SourceAvailability.UNKNOWN
+    assert updated.last_checked_utc is None
+    assert updated.current_error_code is None
+    assert updated.current_error_message is None
+    assert updated.enabled is False
+
+
+@pytest.mark.parametrize("configured_root", [None, "/approved/./source"])
+def test_edit_without_normalized_root_change_preserves_check_state(
+    configured_root: str | None,
+) -> None:
+    service, repository, gateway = _service()
+    source = service.create_local_source("Old", "/approved/source", enabled=True)
+    checked_at = datetime(2026, 8, 9, 10, tzinfo=UTC)
+    repository.sources[source.id] = replace(
+        source,
+        availability=SourceAvailability.UNAVAILABLE,
+        last_checked_utc=checked_at,
+        current_error_code="source.unavailable",
+        current_error_message="Sanitized diagnostic.",
+    )
+    gateway.normalized_roots["/approved/./source"] = "/approved/source"
+
+    updated = service.update_local_source(
+        source.id,
+        source.revision,
+        display_name="New",
+        configured_root=configured_root,
+    )
+
+    assert updated.display_name == "New"
+    assert updated.configured_root == "/approved/source"
+    assert updated.availability is SourceAvailability.UNAVAILABLE
+    assert updated.last_checked_utc == checked_at
+    assert updated.current_error_code == "source.unavailable"
+    assert updated.current_error_message == "Sanitized diagnostic."
 
 
 def test_root_edit_is_rejected_after_media_file_reference_exists() -> None:
