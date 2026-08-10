@@ -38,16 +38,58 @@ class CatalogueItemRecord(Base):
 
 
 class MediaSourceRecord(Base):
-    """Minimum persisted source identity and technology kind."""
+    """Persisted source configuration, lifecycle and sanitized availability."""
 
     __tablename__ = "media_sources"
     __table_args__ = (
         CheckConstraint("length(trim(id)) > 0", name="ck_media_sources_id_nonblank"),
         CheckConstraint("kind IN ('local', 'smb')", name="ck_media_sources_kind"),
+        CheckConstraint(
+            "display_name IS NULL OR length(trim(display_name)) > 0",
+            name="ck_media_sources_display_name_nonblank",
+        ),
+        CheckConstraint(
+            "configured_root IS NULL OR length(trim(configured_root)) > 0",
+            name="ck_media_sources_configured_root_nonblank",
+        ),
+        CheckConstraint("enabled IN (0, 1)", name="ck_media_sources_enabled_boolean"),
+        CheckConstraint(
+            "availability IN ('unknown', 'available', 'unavailable', "
+            "'authentication_failed', 'permission_denied', 'invalid_root', 'error')",
+            name="ck_media_sources_availability",
+        ),
+        CheckConstraint(
+            "current_error_code IS NULL OR length(trim(current_error_code)) > 0",
+            name="ck_media_sources_error_code_nonblank",
+        ),
+        CheckConstraint(
+            "current_error_message IS NULL OR length(trim(current_error_message)) > 0",
+            name="ck_media_sources_error_message_nonblank",
+        ),
+        CheckConstraint(
+            "(current_error_code IS NULL) = (current_error_message IS NULL)",
+            name="ck_media_sources_error_pair",
+        ),
+        CheckConstraint(
+            "retired_utc_us IS NULL OR enabled = 0",
+            name="ck_media_sources_retired_disabled",
+        ),
+        CheckConstraint("revision >= 1", name="ck_media_sources_revision_positive"),
+        Index("ix_media_sources_enabled_availability", "enabled", "availability"),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)
     kind: Mapped[str] = mapped_column(String, nullable=False)
+    display_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    configured_root: Mapped[str | None] = mapped_column(String, nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    availability: Mapped[str] = mapped_column(String, nullable=False, default="unknown")
+    last_checked_utc_us: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    last_successful_scan_utc_us: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    current_error_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    current_error_message: Mapped[str | None] = mapped_column(String, nullable=True)
+    retired_utc_us: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
 
 class MediaFileRecord(Base):

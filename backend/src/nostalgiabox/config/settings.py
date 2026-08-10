@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     local_timezone: str = Field(default="Europe/London", min_length=1)
     mpv_socket_path: Path = Path("/run/nostalgiabox/mpv.sock")
     mpv_command_timeout_seconds: float = Field(default=2.0, gt=0)
+    approved_local_media_roots: tuple[Path, ...] = Field(
+        default=(Path("/srv/nostalgiabox/media"),), min_length=1
+    )
 
     @model_validator(mode="after")
     def require_persistent_production_database(self) -> Self:
@@ -35,4 +38,16 @@ class Settings(BaseSettings):
                 "URL; an in-memory SQLite database is not allowed."
             )
             raise ValueError(message)
+        return self
+
+    @model_validator(mode="after")
+    def require_absolute_approved_media_roots(self) -> Self:
+        """Keep expert roots explicit and reject ambiguous deployment configuration."""
+        if any(
+            not root.is_absolute() and not root.as_posix().startswith("/")
+            for root in self.approved_local_media_roots
+        ):
+            raise ValueError("approved local media roots must be absolute")
+        if len(set(self.approved_local_media_roots)) != len(self.approved_local_media_roots):
+            raise ValueError("approved local media roots must be unique")
         return self

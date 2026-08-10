@@ -54,6 +54,26 @@ def test_task31_catalogue_foundation_has_no_scanner_or_probe_dependencies() -> N
         assert marker not in source.lower()
 
 
+def test_task32_source_lifecycle_keeps_filesystem_and_policy_boundaries_directed() -> None:
+    application_source = (_PACKAGE_ROOT / "application" / "sources.py").read_text(encoding="utf-8")
+    persistence_source = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            _PACKAGE_ROOT / "persistence" / "catalogue_repositories.py",
+            _PACKAGE_ROOT / "persistence" / "source_uow.py",
+        )
+    )
+    local_adapter = (_PACKAGE_ROOT / "source" / "local.py").read_text(encoding="utf-8")
+
+    for marker in ("pathlib", "os.scandir", "os.stat", "sqlalchemy", "fastapi", "ffprobe"):
+        assert marker not in application_source.lower()
+    for marker in ("pathlib", "is_relative_to", "os.scandir", "approved_roots"):
+        assert marker not in persistence_source
+    for marker in ("os.walk", "rglob(", "ffprobe", "subprocess", "sqlalchemy", "fastapi"):
+        assert marker not in local_adapter.lower()
+    assert "os.scandir" in local_adapter
+
+
 def test_phase2_timeline_and_runtime_do_not_depend_on_catalogue_infrastructure() -> None:
     phase2_files = [
         _PACKAGE_ROOT / "domain" / "timeline.py",

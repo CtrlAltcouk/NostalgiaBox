@@ -2,11 +2,11 @@
 
 ## Status and delivery rules
 
-**Implementation in progress — 2026-08-09.** Task 3.1 is implemented and accepted, including its
-isolated reference-Dell validation. Later tasks and Phase 3 as a whole are not implemented or
-accepted. Each task requires its own branch, review, tests, migration lifecycle where applicable,
-documentation and proportionate reference-Dell evidence. Phase 2 tests and architecture remain
-mandatory regression coverage.
+**Implementation in progress — 2026-08-10.** Tasks 3.1 and 3.2 are accepted for their approved
+scope. Task 3.2 local-source lifecycle passed isolated reference-Dell validation on Debian 13 and
+Python 3.13.5. Later tasks and Phase 3 as a whole are not accepted. Each task requires its own
+branch, review, tests, migration lifecycle where applicable, documentation and proportionate
+reference-Dell evidence. Phase 2 tests and architecture remain mandatory regression coverage.
 
 Rules for every task:
 
@@ -94,9 +94,59 @@ Rules for every task:
 - **Automated tests:** approved-root canonicalization, traversal and symlink escape, protected-root
   rejection, explicit expert roots, readable/missing/permission roots, state transitions, disable/
   retire semantics, no secret/path leakage and transaction conflicts.
-- **Dell validation:** isolated temporary internal folder owned by the test operator.
+- **Dell validation:** `PASS` on Debian 13/Python 3.13.5 using isolated temporary local roots and
+  disposable databases; no production media was scanned and the production database was untouched.
 - **Risks:** symlink escape, case sensitivity and path disclosure.
 - **Exit:** local sources have stable identity and controlled availability with no file discovery.
+
+#### Task 3.2 implementation evidence
+
+- **Acceptance status:** `PASS` for the approved Task 3.2 local-source scope. Windows/Python 3.13
+  passes 287 tests with four honest platform-capability skips. Reference Debian 13/Python 3.13.5
+  passes all 291 tests with no skips, including AF_UNIX, two real directory-symlink cases and the
+  real POSIX unreadable-directory permission case. The focused Task 3.2 suite passes all 37 tests.
+- **Lifecycle/application:** explicit create/get/list/edit/check/enable/disable/retire services use
+  pure values, short unit-of-work transactions and optimistic positive revisions. Name/root edits do
+  not change stable identity; stale writes fail. Retirement is terminal in Task 3.2, disables the
+  source and preserves source, file, catalogue, rendition and timeline rows.
+- **Availability:** `UNKNOWN`, `AVAILABLE`, `UNAVAILABLE`, `AUTHENTICATION_FAILED`,
+  `PERMISSION_DENIED`, `INVALID_ROOT` and `ERROR` remain distinct from enabled/retired state.
+  Checks use the injected clock, persist only sanitized code/message diagnostics, clear recovered
+  errors and never modify `last_successful_scan_utc`.
+- **Root security:** deployment setting `approved_local_media_roots` defaults to
+  `/srv/nostalgiabox/media` and admits expert roots only when explicitly configured. The local
+  adapter accepts absolute configured roots only, uses component-aware canonical containment,
+  rejects traversal, NUL, sibling-prefix, protected-root and symlink escapes, permits same-root
+  symlinks, and re-resolves every availability test. It opens only the directory once with no media
+  enumeration or recursion.
+- **Root edits:** an unpopulated source may change root; any `MediaFile` reference produces a typed
+  conflict requiring retire plus a new source identity rather than silently repointing history. An
+  actual normalized-root change resets availability to `UNKNOWN` and clears the old root's check
+  timestamp and diagnostics without changing enabled/retired state or running a check. Name-only
+  edits and inputs that normalize to the existing root preserve that availability evidence.
+- **Persistence:** revision `20260810_0003` adds only source configuration, independent lifecycle/
+  availability state, exact UTC timestamps, sanitized errors and revision/index/check constraints.
+  Existing Task 3.1 local or SMB rows retain identity/kind, receive `display_name=id`, remain
+  disabled/unknown at revision 1 and receive no fabricated root. `last_successful_scan_utc` remains
+  nullable for Task 3.3 ownership.
+- **Reference-Dell evidence:** real lifecycle operations as the `nostalgia` service account proved
+  create/read/check, enable/disable independence, missing-root `INVALID_ROOT`, real mode-`000`
+  `PERMISSION_DENIED`, controlled outside-root symlink rejection and non-destructive terminal
+  retirement with exact repository reload. The disposable Alembic lifecycle passed empty upgrade,
+  repeat head, downgrade to `20260809_0002` and re-upgrade to unchanged `20260810_0003 (head)`.
+  Ruff lint/format passed and strict mypy passed across 98 source files.
+- **Requirement status:** the implemented local portions of `P3-SRC-01`–`05` and `P3-SRC-07` are
+  accepted. Overall `P3-SRC-01`, `02` and `04` remain `PARTIAL` pending SMB behavior;
+  `P3-SRC-03` remains `PARTIAL` until scanning proves no missing reconciliation; `P3-SRC-05`
+  remains `PARTIAL` because physical-location retirement/purge belongs to later reconciliation.
+  `P3-SRC-06` is untouched for Task 3.6. Phase 3 remains in progress.
+- **Isolation:** validation used `/tmp/nostalgiabox-task32`, disposable SQLite databases and
+  temporary roots under `/srv/nostalgiabox/media/task32-validation` plus `/tmp`. All were removed.
+  Production data, media, MPV, playback, boot/X, autologin and systemd configuration were not
+  modified.
+- **Scope:** no scanner, media discovery, file lifecycle, active-locator uniqueness, ffprobe,
+  fingerprint, SMB adapter/credential, API, WebUI, authentication, worker, WAL or scheduling code
+  was added. ADR-012 and ADR-013 remain `Proposed`.
 
 ### Task 3.3 — Scan coordinator and deterministic local discovery
 

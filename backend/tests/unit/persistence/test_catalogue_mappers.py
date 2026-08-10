@@ -1,6 +1,6 @@
 """Exact catalogue ORM conversion tests."""
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from nostalgiabox.domain.catalogue import (
     CatalogueItem,
@@ -12,6 +12,7 @@ from nostalgiabox.domain.catalogue import (
     MediaSourceKind,
     PlayableRendition,
     PlayableRenditionId,
+    SourceAvailability,
 )
 from nostalgiabox.persistence.catalogue_mappers import (
     catalogue_item_from_record,
@@ -49,3 +50,22 @@ def test_catalogue_foundation_values_round_trip_without_precision_loss() -> None
     assert media_source_from_record(media_source_to_record(source)) == source
     assert media_file_from_record(media_file_to_record(media_file)) == media_file
     assert rendition_from_record(rendition_to_record(rendition)) == rendition
+
+
+def test_configured_media_source_round_trips_exact_lifecycle_state() -> None:
+    source = MediaSource(
+        MediaSourceId("source-local"),
+        MediaSourceKind.LOCAL,
+        display_name="Local library",
+        configured_root="/srv/nostalgiabox/media/library",
+        enabled=False,
+        availability=SourceAvailability.PERMISSION_DENIED,
+        last_checked_utc=datetime(2026, 8, 10, 12, 34, 56, 123456, tzinfo=UTC),
+        last_successful_scan_utc=datetime(2026, 8, 9, 1, 2, 3, 654321, tzinfo=UTC),
+        current_error_code="source.permission_denied",
+        current_error_message="NostalgiaBox cannot read this source.",
+        retired_utc=datetime(2026, 8, 10, 13, 0, 0, 1, tzinfo=UTC),
+        revision=7,
+    )
+
+    assert media_source_from_record(media_source_to_record(source)) == source

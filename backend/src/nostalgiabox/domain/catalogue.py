@@ -1,7 +1,7 @@
 """Pure Phase 3 catalogue identity and playable-rendition values."""
 
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from enum import StrEnum
 from itertools import pairwise
 
@@ -26,6 +26,10 @@ class RenditionOverlapError(CatalogueDomainError):
 
 class PreferredRenditionConflictError(CatalogueDomainError):
     """A catalogue item has more than one preferred rendition."""
+
+
+class InvalidMediaSourceError(CatalogueDomainError):
+    """A configured media source violates a lifecycle invariant."""
 
 
 def _require_identifier(value: str, name: str) -> None:
@@ -80,6 +84,18 @@ class MediaSourceKind(StrEnum):
     SMB = "smb"
 
 
+class SourceAvailability(StrEnum):
+    """Latest structured availability result, independent of enabled state."""
+
+    UNKNOWN = "unknown"
+    AVAILABLE = "available"
+    UNAVAILABLE = "unavailable"
+    AUTHENTICATION_FAILED = "authentication_failed"
+    PERMISSION_DENIED = "permission_denied"
+    INVALID_ROOT = "invalid_root"
+    ERROR = "error"
+
+
 @dataclass(frozen=True, slots=True)
 class CatalogueItem:
     """A stable logical programme identity that may not yet be playable."""
@@ -89,10 +105,50 @@ class CatalogueItem:
 
 @dataclass(frozen=True, slots=True)
 class MediaSource:
-    """Minimum source identity/type foundation; lifecycle belongs to Task 3.2."""
+    """Stable source configuration, lifecycle and sanitized availability state."""
 
     id: MediaSourceId
     kind: MediaSourceKind
+    display_name: str | None = None
+    configured_root: str | None = None
+    enabled: bool = False
+    availability: SourceAvailability = SourceAvailability.UNKNOWN
+    last_checked_utc: datetime | None = None
+    last_successful_scan_utc: datetime | None = None
+    current_error_code: str | None = None
+    current_error_message: str | None = None
+    retired_utc: datetime | None = None
+    revision: int = 1
+
+    def __post_init__(self) -> None:
+        if self.display_name is not None and not self.display_name.strip():
+            raise InvalidMediaSourceError("media-source display name must not be blank")
+        if self.configured_root is not None:
+            if not self.configured_root.strip():
+                raise InvalidMediaSourceError("media-source configured root must not be blank")
+            if "\x00" in self.configured_root:
+                raise InvalidMediaSourceError("media-source configured root contains NUL")
+        if self.revision < 1:
+            raise InvalidMediaSourceError("media-source revision must be positive")
+        if self.retired_utc is not None and self.enabled:
+            raise InvalidMediaSourceError("a retired media source must be disabled")
+        if (self.current_error_code is None) != (self.current_error_message is None):
+            raise InvalidMediaSourceError(
+                "media-source error code and message must both be present or absent"
+            )
+        if self.current_error_code is not None and not self.current_error_code.strip():
+            raise InvalidMediaSourceError("media-source error code must not be blank")
+        if self.current_error_message is not None and not self.current_error_message.strip():
+            raise InvalidMediaSourceError("media-source error message must not be blank")
+        for name, value in (
+            ("last checked", self.last_checked_utc),
+            ("last successful scan", self.last_successful_scan_utc),
+            ("retired", self.retired_utc),
+        ):
+            if value is not None and (
+                value.utcoffset() is None or value.utcoffset() != timedelta()
+            ):
+                raise InvalidMediaSourceError(f"media-source {name} timestamp must be aware UTC")
 
 
 @dataclass(frozen=True, slots=True)
