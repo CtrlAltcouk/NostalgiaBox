@@ -28,6 +28,22 @@ class Settings(BaseSettings):
     approved_local_media_roots: tuple[Path, ...] = Field(
         default=(Path("/srv/nostalgiabox/media"),), min_length=1
     )
+    scan_discovery_extensions: tuple[str, ...] = (
+        ".mkv",
+        ".mp4",
+        ".m4v",
+        ".avi",
+        ".mov",
+        ".webm",
+        ".mpg",
+        ".mpeg",
+        ".ts",
+        ".m2ts",
+    )
+    scan_ignore_patterns: tuple[str, ...] = ()
+    scan_persistence_batch_size: int = Field(default=100, ge=1)
+    scan_progress_update_threshold: int = Field(default=50, ge=1)
+    scan_worker_concurrency: int = Field(default=2, ge=1, le=4)
 
     @model_validator(mode="after")
     def require_persistent_production_database(self) -> Self:
@@ -50,4 +66,32 @@ class Settings(BaseSettings):
             raise ValueError("approved local media roots must be absolute")
         if len(set(self.approved_local_media_roots)) != len(self.approved_local_media_roots):
             raise ValueError("approved local media roots must be unique")
+        return self
+
+    @model_validator(mode="after")
+    def require_safe_scan_policy(self) -> Self:
+        """Validate deterministic local discovery configuration at construction."""
+        extensions = self.scan_discovery_extensions
+        if not extensions:
+            raise ValueError("scan discovery extensions must not be empty")
+        if any(
+            extension != extension.strip()
+            or not extension.startswith(".")
+            or extension != extension.casefold()
+            or "/" in extension
+            or "\\" in extension
+            for extension in extensions
+        ):
+            raise ValueError("scan discovery extensions must be lowercase suffixes beginning '.'")
+        if len(set(extensions)) != len(extensions):
+            raise ValueError("scan discovery extensions must be unique")
+        for pattern in self.scan_ignore_patterns:
+            if (
+                not pattern
+                or pattern != pattern.strip()
+                or "\x00" in pattern
+                or pattern.startswith(("/", "\\"))
+                or ".." in pattern.replace("\\", "/").split("/")
+            ):
+                raise ValueError("scan ignore patterns must be safe source-relative patterns")
         return self

@@ -2,9 +2,10 @@
 
 ## Status
 
-**In progress — 2026-08-10.** Tasks 3.1 and 3.2 are `PASS` for their approved scope. Task 3.2
-reference validation on Debian 13/Python 3.13.5 passes all 291 tests with no skips, including the
-four cases gated on Windows. Later tasks and Phase 3 as a whole remain in progress.
+**In progress — 2026-08-10.** Tasks 3.1 and 3.2 are `PASS` for their approved scope. Task 3.3
+development validation passes 348 tests on Windows/Python 3.13 with five honest capability skips;
+its isolated reference-Dell validation remains pending. Task 3.4 has not started, and Phase 3 as a
+whole remains in progress.
 
 Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 `DEFERRED-BY-APPROVED-SCOPE`.
@@ -29,16 +30,16 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Additive Phase 2 compatibility migration | Same-ID catalogue backfill; unchanged `media_items`, timeline FKs, runtime projection and lossless downgrade | Disposable Phase 2-shaped Dell DB lifecycle passed | PASS |
 | Catalogue item without rendition | Persist/query logical identity without creating a Phase 2 playable row | Not required | PASS |
 | Historical file identity at reused locator | Two stable `MediaFile` IDs may share one source/normalized locator; composite lookup index is non-unique; blank IDs/locators fail DB checks | Not required | PASS |
-| One active file per source/locator | Add transactional and database-backed active-only uniqueness after media-file lifecycle/state exists | Owned by future scanning/reconciliation lifecycle; not implemented in Task 3.1 | PLANNED |
+| One present file per source/locator | `PRESENT` partial unique index; `UNCLASSIFIED`/`MISSING` duplicates remain legal; ambiguous legacy rows are not merged | Repeat constraint/migration suite on Dell | PARTIAL |
 | Local source create/read/edit/test/enable/disable | Pure service, unit-of-work/revision conflicts, real temporary-root adapter and exact persistence round trip pass | Dell readable/missing source lifecycle passed as `nostalgia` | PASS |
 | Local availability and diagnostics | Enabled/availability remain independent; permission/invalid/unavailable mapping, recovery clearing and exact UTC check pass | Real mode-`000` permission denial as `nostalgia` returned `PERMISSION_DENIED` | PASS |
-| Initial local scan | Temporary tree → migrated DB → file/catalogue projections | Dell temporary local folder | PLANNED |
+| Initial local scan | Real temporary-tree adapter → one `PRESENT` physical row per eligible file; no logical/playable rows | Dell temporary local folder pending | PARTIAL |
 | Local allowed-root safety | Canonical containment, traversal/sibling-prefix/protected-root rejection, explicit expert allow-list and same-root/escape symlink policy implemented | Dell real symlink, retarget, traversal and permission cases passed | PASS |
-| Unchanged incremental scan | IDs/revisions/probe calls unchanged | Measured no-op scan | PLANNED |
-| File addition | New file and metadata visible once | Local and NAS fixture | PLANNED |
-| File removal | Successful complete scan marks missing, never deletes logical item | Local fixture | PLANNED |
+| Unchanged incremental scan | Same IDs/signatures, no duplicates, unchanged count and successful-scan advance pass | Dell no-op rescan pending; probe skipping belongs to 3.4 | PARTIAL |
+| File addition | Existing ID retained and one new `PRESENT` physical ID created | Dell generated local fixture pending; NAS later | PARTIAL |
+| File removal | Only successful authoritative scan marks retained row `MISSING`; failed/cancelled/source-changed scans do not | Dell generated local fixture pending | PARTIAL |
 | Rename/move | Unique strong evidence preserves file ID/match/override | Local and same-share rename | PLANNED |
-| Changed/replaced file | Reprobe; replacement gets new file identity when content conflicts | Generated replacement | PLANNED |
+| Changed observation at same locator | Cheap signature change detected, provisional ID retained and safe issue emitted; no replacement claim | Dell generated change pending; Task 3.5 owns final identity | PARTIAL |
 | Duplicate | Weak candidate stays separate; full confirmation groups without deletion | Copy across source fixtures | PLANNED |
 | Ambiguous fingerprint/collision | No silent merge; attention issue emitted | Not required—synthetic collision | PLANNED |
 | Corrupt file | Probe failure stored/safely displayed | Small operator-owned corrupt fixture | PLANNED |
@@ -46,11 +47,12 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | ffprobe success | Exact duration/container/streams/rational fields | Real ffprobe on Dell | PLANNED |
 | ffprobe timeout/failure/malformed output | Typed categories, child cleanup, bounded output, redaction | Optional timeout smoke | PLANNED |
 | Probe capability/version refresh | Changed version triggers refresh; unchanged does not | Dell installed version recorded | PLANNED |
-| Source offline before scan | Prior files retained; availability issue, no missing reconciliation | NAS disconnect | PLANNED |
+| Source offline before scan | Controlled availability failure, prior files and successful-scan time retained, no traversal/reconciliation | Local fake passes; NAS disconnect belongs later | PARTIAL |
 | NAS authentication/permission failure | Distinct safe categories, secret absent from output | Test account/permissions | PLANNED |
 | NAS reconnect | Same source/file/catalogue IDs restored | Disconnect/reconnect test share | PLANNED |
-| Interrupted scan | Stale run interrupted; rerun idempotent; unseen files not missing | Terminate isolated scan/restart | PLANNED |
-| Cancellation | Committed batches valid; no final missing sweep | UI/API cancellation if implemented | PLANNED |
+| Interrupted scan/recovery | Failed traversal retains committed batches; abandoned queued/running runs become interrupted idempotently; unseen files stay present | Dell focused suite and recovery smoke pending | PARTIAL |
+| Cancellation | Durable repeated request is safe; committed batch remains; no final missing sweep/success timestamp | Dell focused cancellation case pending; API later | PARTIAL |
+| One active scan per source | Application guard plus SQLite partial unique active-source index; different sources admitted within executor bound | Dell focused constraint/worker proof pending | PARTIAL |
 | Manual correction survives rescan | Override and locked match beat refreshed derived data | Browser correction then rescan | PLANNED |
 | Clear correction | Latest derived value becomes effective | Browser flow | PLANNED |
 | Concurrent edit | Revision conflict, no lost update | Two browser sessions optional | PLANNED |
@@ -60,10 +62,10 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Segment playback projection | Pure resolver value returns path/origin/logical bound; physical position equals origin plus logical offset outside React/timeline | Runtime integration deliberately deferred; Phase 2 runtime unchanged | PARTIAL |
 | Rendition duration discrepancy | Needs Attention issue; preferred rendition change does not mutate `MediaItem.duration` or existing timeline boundaries | Optional browser inspection | PLANNED |
 | Unavailable preferred rendition | Controlled alternate selection or explicit unavailable result per policy | NAS loss during lookup | PLANNED |
-| Playback while scanning | Runtime reads/MPV fake continue during batched writes | Real MPV playback during scan | PLANNED |
+| Playback while scanning | Seeded Phase 2 runtime repeatedly resolves from same disposable DB during bounded scan writes | Dell same-DB runtime proof pending; real MPV concurrency later | PARTIAL |
 | Concurrent WebUI reads | Bounded latency/no lock failures while scan writes | Desktop/phone browse during scan | PLANNED |
 | SQLite busy/retry bounds | Transient busy recovers; persistent busy fails safely | Dell WAL/busy benchmark | PLANNED |
-| Migration lifecycle | Task 3.2 empty/current/repeat/downgrade/re-upgrade and populated Phase 2/Task 3.1 preservation pass | Dell lifecycle passed through unchanged `20260810_0003`, downgrade to `20260809_0002`, and re-upgrade | PASS |
+| Migration lifecycle | Task 3.3 empty/current/repeat/downgrade/re-upgrade and populated Task 3.2 lossless preservation pass; duplicate legacy locators remain `UNCLASSIFIED` | Task 3.2 evidence remains PASS; `20260810_0004` Dell lifecycle pending | PARTIAL |
 | Source API | Validation, lifecycle, test, redaction, status codes | Live API smoke | PLANNED |
 | Scan API | 202/job ID, progress/history/issues, conflict/cancel | Live scan polling | PLANNED |
 | Catalogue API | Pagination/search/filter/detail/attention/corrections/ETag | Live browser use | PLANNED |
@@ -76,7 +78,7 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Accessibility | Automated rules plus keyboard/focus/error semantics | Manual keyboard/contrast review | PLANNED |
 | Source deletion/retirement | Source retirement is terminal, disables without deleting source/file/catalogue data; physical-location retirement/purge remains later work | Dell non-destructive source retirement and exact repository reload passed; physical-location lifecycle remains later | PARTIAL |
 | Artwork absent/failure | Placeholder; no scan/playback failure | Browser smoke | PLANNED |
-| Secrets/artifacts | Git audit for media/DB/WAL/cache/log/token/env/build output | Appliance paths outside checkout | PLANNED |
+| Secrets/artifacts | Development Git audit for media/DB/WAL/cache/log/token/env/build output | Repeat checkout/appliance cleanup audit on Dell | PARTIAL |
 
 ## Layering and contract tests
 
@@ -301,7 +303,259 @@ git worktree remove --force /tmp/nostalgiabox-task32
 This evidence accepts the behavior owned by Task 3.2 only. Scanning, `MediaFile` active/missing/
 retired state, physical-location retirement, active-only locator uniqueness, successful-scan
 timestamps, SMB/NAS and credentials, APIs, WebUI and Task 3.3+ remain `PARTIAL` or `PLANNED` as
-shown above. Phase 3 remains in progress; Task 3.3 has not started.
+shown above. That was the Task 3.2 acceptance boundary; Task 3.3 is now implemented in development
+as documented below. Phase 3 remains in progress and Task 3.4 has not started.
+
+### Task 3.3 isolated reference-Dell procedure — pending
+
+Run this exact procedure on Debian 13/Python 3.13 from a clean existing repository. It uses only
+`/tmp`, a detached temporary worktree, disposable SQLite databases and the single temporary source
+`/srv/nostalgiabox/media/task33-validation`. It must not scan the parent media root, access the
+production database, or modify MPV, playback, boot/X, autologin or systemd configuration.
+
+```bash
+set -euo pipefail
+git fetch origin
+test ! -e /tmp/nostalgiabox-task33
+test ! -e /srv/nostalgiabox/media/task33-validation
+git worktree add --detach /tmp/nostalgiabox-task33 \
+  origin/codex/phase-3.3-scan-coordinator-local-discovery
+cd /tmp/nostalgiabox-task33/backend
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -e '.[dev,linux-input]'
+
+.venv/bin/python -m pytest
+.venv/bin/python -m ruff check .
+.venv/bin/python -m ruff format --check .
+.venv/bin/python -m mypy
+.venv/bin/python -m pytest -vv \
+  tests/unit/domain/test_scanning.py \
+  tests/unit/source/test_traversal.py \
+  tests/unit/source/test_executor.py \
+  tests/integration/test_scan_coordinator.py \
+  tests/integration/test_scan_repositories.py \
+  tests/integration/test_scan_migration.py \
+  tests/integration/test_migrations.py \
+  tests/unit/test_architecture.py \
+  tests/unit/test_settings.py
+
+# Explicit disposable Alembic lifecycle.
+migration_root="$(mktemp -d /tmp/nostalgiabox-task33-migration.XXXXXX)"
+export NOSTALGIABOX_ENVIRONMENT=test
+export NOSTALGIABOX_DATABASE_URL="sqlite+pysqlite:///$migration_root/lifecycle.db"
+.venv/bin/alembic upgrade head
+.venv/bin/alembic current
+.venv/bin/alembic upgrade head
+.venv/bin/alembic downgrade 20260810_0003
+.venv/bin/alembic current
+.venv/bin/alembic upgrade head
+.venv/bin/alembic current
+unset NOSTALGIABOX_DATABASE_URL NOSTALGIABOX_ENVIRONMENT
+
+# Generate one tiny real source; never enumerate its parent.
+validation_root=/srv/nostalgiabox/media/task33-validation
+hardware_db=/tmp/nostalgiabox-task33-hardware.sqlite3
+fake_bin="$(mktemp -d /tmp/nostalgiabox-task33-bin.XXXXXX)"
+ffprobe_marker=/tmp/nostalgiabox-task33-ffprobe-invoked
+test ! -e "$hardware_db"
+test ! -e "$ffprobe_marker"
+sudo install -d -o nostalgia -g nostalgia -m 0700 \
+  "$validation_root/nested" "$validation_root/.hidden" "$validation_root/skip-cache"
+sudo -u nostalgia sh -c 'printf one > "$1/one.mkv"' sh "$validation_root"
+sudo -u nostalgia sh -c 'printf two > "$1/nested/two.MP4"' sh "$validation_root"
+sudo -u nostalgia sh -c 'printf hidden > "$1/.hidden/hidden.mkv"' sh "$validation_root"
+sudo -u nostalgia sh -c 'printf ignored > "$1/skip-cache/ignored.mkv"' sh "$validation_root"
+sudo -u nostalgia sh -c 'printf text > "$1/notes.txt"' sh "$validation_root"
+sudo -u nostalgia ln -s -- one.mkv "$validation_root/link.mkv"
+cat > "$fake_bin/ffprobe" <<'SH'
+#!/bin/sh
+touch /tmp/nostalgiabox-task33-ffprobe-invoked
+exit 99
+SH
+chmod 0755 "$fake_bin/ffprobe"
+sudo -u nostalgia env \
+  NOSTALGIABOX_ENVIRONMENT=test \
+  NOSTALGIABOX_DATABASE_URL="sqlite+pysqlite:///$hardware_db" \
+  .venv/bin/alembic upgrade head
+sudo -u nostalgia env \
+  PATH="$fake_bin:$PATH" \
+  NOSTALGIABOX_ENVIRONMENT=test \
+  NOSTALGIABOX_DATABASE_URL="sqlite+pysqlite:///$hardware_db" \
+  NOSTALGIABOX_APPROVED_LOCAL_MEDIA_ROOTS='["/srv/nostalgiabox/media/task33-validation"]' \
+  NOSTALGIABOX_SCAN_IGNORE_PATTERNS='["skip-*"]' \
+  .venv/bin/python - <<'PY'
+from pathlib import Path
+from time import monotonic
+from uuid import uuid4
+
+from sqlalchemy import func, select
+
+from nostalgiabox.application.scans import ScanCoordinator
+from nostalgiabox.config.settings import Settings
+from nostalgiabox.domain import (
+    FilePresenceState,
+    MediaFileId,
+    MediaSource,
+    MediaSourceId,
+    MediaSourceKind,
+    ScanIssueId,
+    ScanKind,
+    ScanRunId,
+    ScanStatus,
+    SystemClock,
+)
+from nostalgiabox.persistence.catalogue_mappers import media_file_from_record
+from nostalgiabox.persistence.catalogue_repositories import SqlAlchemyMediaSourceRepository
+from nostalgiabox.persistence.database import create_engine, create_session_factory
+from nostalgiabox.persistence.models import (
+    CatalogueItemRecord,
+    MediaFileRecord,
+    MediaItemRecord,
+    PlayableRenditionRecord,
+)
+from nostalgiabox.persistence.scan_repositories import SqlAlchemyScanRunRepository
+from nostalgiabox.persistence.scan_uow import SqlAlchemyScanUnitOfWork
+from nostalgiabox.source.local import LocalFilesystemSourceGateway
+from nostalgiabox.source.traversal import LocalFilesystemTraversalGateway
+
+
+class InlineExecutor:
+    def submit(self, operation):
+        operation()
+
+    def shutdown(self, *, wait=True):
+        return None
+
+
+settings = Settings()
+root = Path("/srv/nostalgiabox/media/task33-validation")
+engine = create_engine(settings)
+factory = create_session_factory(engine)
+source_id = MediaSourceId("dell-task33")
+with factory() as session:
+    SqlAlchemyMediaSourceRepository(session).store(
+        MediaSource(
+            source_id,
+            MediaSourceKind.LOCAL,
+            display_name="Task 3.3 validation",
+            configured_root=str(root),
+            enabled=True,
+        )
+    )
+    session.commit()
+source_gateway = LocalFilesystemSourceGateway([str(root)])
+traversal = LocalFilesystemTraversalGateway(
+    source_gateway,
+    settings.scan_discovery_extensions,
+    settings.scan_ignore_patterns,
+)
+coordinator = ScanCoordinator(
+    lambda: SqlAlchemyScanUnitOfWork(factory),
+    source_gateway,
+    traversal,
+    InlineExecutor(),
+    SystemClock(),
+    lambda: ScanRunId(str(uuid4())),
+    lambda: ScanIssueId(str(uuid4())),
+    lambda: MediaFileId(str(uuid4())),
+    persistence_batch_size=settings.scan_persistence_batch_size,
+    progress_update_threshold=settings.scan_progress_update_threshold,
+)
+
+
+def scan(kind=ScanKind.FULL):
+    queued = coordinator.start_scan(source_id, kind)
+    with factory() as session:
+        run = SqlAlchemyScanRunRepository(session).get(queued.id)
+        assert run is not None and run.status is ScanStatus.COMPLETED
+        return run
+
+
+def files():
+    with factory() as session:
+        records = session.scalars(
+            select(MediaFileRecord)
+            .where(MediaFileRecord.source_id == source_id.value)
+            .order_by(MediaFileRecord.normalized_relative_locator)
+        ).all()
+        return tuple(media_file_from_record(record) for record in records)
+
+
+started = monotonic()
+initial = scan()
+initial_files = files()
+assert [item.normalized_relative_locator for item in initial_files] == [
+    "nested/two.MP4",
+    "one.mkv",
+]
+assert initial.counters.added == 2 and initial.counters.ignored == 4
+initial_ids = {item.normalized_relative_locator: item.id for item in initial_files}
+
+unchanged = scan(ScanKind.INCREMENTAL)
+assert unchanged.counters.unchanged == 2
+assert {item.normalized_relative_locator: item.id for item in files()} == initial_ids
+
+(root / "added.m4v").write_bytes(b"added")
+added = scan(ScanKind.INCREMENTAL)
+assert added.counters.added == 1 and added.counters.unchanged == 2
+
+(root / "one.mkv").write_bytes(b"one-changed")
+changed = scan()
+assert changed.counters.changed == 1
+assert {item.normalized_relative_locator: item.id for item in files()}["one.mkv"] == initial_ids[
+    "one.mkv"
+]
+
+removed_path = root / "nested/two.MP4"
+removed_path.unlink()
+removed = scan()
+assert removed.counters.missing == 1
+missing = next(item for item in files() if item.normalized_relative_locator == "nested/two.MP4")
+assert missing.id == initial_ids["nested/two.MP4"]
+assert missing.presence is FilePresenceState.MISSING
+
+removed_path.write_bytes(b"two-restored")
+scan()
+restored = next(item for item in files() if item.normalized_relative_locator == "nested/two.MP4")
+assert restored.id == initial_ids["nested/two.MP4"]
+assert restored.presence is FilePresenceState.PRESENT and restored.missing_since_utc is None
+
+with factory() as session:
+    assert session.scalar(select(func.count()).select_from(CatalogueItemRecord)) == 0
+    assert session.scalar(select(func.count()).select_from(PlayableRenditionRecord)) == 0
+    assert session.scalar(select(func.count()).select_from(MediaItemRecord)) == 0
+elapsed = monotonic() - started
+print(
+    "task33 elapsed_seconds=",
+    elapsed,
+    "batch_size=",
+    settings.scan_persistence_batch_size,
+    "progress_threshold=",
+    settings.scan_progress_update_threshold,
+    "worker_concurrency=",
+    settings.scan_worker_concurrency,
+)
+engine.dispose()
+PY
+
+# Focused tests above prove failed/interrupted scans, cancellation after a committed batch,
+# one-active-scan DB/application enforcement, abandoned-run recovery and repeated Phase 2 runtime
+# reads from the same disposable DB. The real fixture proves Linux traversal/symlink behavior.
+test ! -e "$ffprobe_marker"
+test "$(git status --porcelain)" = ""
+
+# Remove every disposable source, database, fake executable, environment and worktree.
+sudo -u nostalgia rm -r -- "$validation_root"
+sudo -u nostalgia rm -- "$hardware_db"
+rm -r -- "$migration_root" "$fake_bin"
+cd -
+git worktree remove --force /tmp/nostalgiabox-task33
+```
+
+Record Debian/Python versions; full and focused totals/skips; Ruff/mypy; every Alembic revision;
+real fixture IDs/counters/issues/times; cancellation/recovery/mutual-exclusion/runtime results;
+elapsed time and provisional settings; the absent ffprobe marker; clean Git status; and complete
+cleanup. Do not convert Task 3.3 to `PASS` until this procedure is physically completed.
 
 Use isolated temporary sources, a least-privilege test share/account and operator-owned test media:
 

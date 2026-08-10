@@ -3,10 +3,11 @@
 ## Status and delivery rules
 
 **Implementation in progress — 2026-08-10.** Tasks 3.1 and 3.2 are accepted for their approved
-scope. Task 3.2 local-source lifecycle passed isolated reference-Dell validation on Debian 13 and
-Python 3.13.5. Later tasks and Phase 3 as a whole are not accepted. Each task requires its own
-branch, review, tests, migration lifecycle where applicable, documentation and proportionate
-reference-Dell evidence. Phase 2 tests and architecture remain mandatory regression coverage.
+scope. Task 3.3 local discovery is implemented in development and remains `PARTIAL` pending the
+documented isolated reference-Dell validation. Task 3.4 and later tasks have not started, and Phase
+3 as a whole is not accepted. Each task requires its own branch, review, tests, migration lifecycle
+where applicable, documentation and proportionate reference-Dell evidence. Phase 2 tests and
+architecture remain mandatory regression coverage.
 
 Rules for every task:
 
@@ -154,13 +155,71 @@ Rules for every task:
   and interrupted-run recovery without ffprobe (`P3-SCAN`).
 - **Components:** `ScanCoordinator`, worker/executor port, local traversal adapter, scan/file
   repositories, progress snapshot and issue taxonomy.
-- **Migration:** scan-run/issue and observation-generation tables/indexes if not created in 3.1.
+- **Migration:** revision `20260810_0004` adds scanner-only file presence/observation fields,
+  durable `scan_runs`/`scan_issues`, generation and partial uniqueness indexes without classifying
+  or merging legacy Task 3.1 rows.
 - **Automated tests:** initial/unchanged/add/change/remove, hidden/ignored/symlink cases, interrupted
   enumeration, cancellation, source loss, one-scan-per-source, idempotent replay and no premature
   missing reconciliation.
-- **Dell validation:** scan generated small fixture trees while Phase 2 runtime reads a temporary DB.
+- **Dell validation:** `PENDING`; exact isolated commands and generated fixture procedure are in
+  `TESTING.md`. No reference-appliance result is claimed yet.
 - **Risks:** long transactions, event-loop blocking and excessive progress writes.
 - **Exit:** source inventory is restart-safe and deterministic; no probe/matching exists yet.
+
+#### Task 3.3 implementation evidence
+
+- **Development status:** `PARTIAL` pending reference-Dell validation. Windows/Python 3.13 passes
+  348 tests with five honest platform-capability skips: AF_UNIX, the existing two Task 3.2 symlink
+  cases, the existing POSIX permission case and one new real traversal-symlink case.
+- **Pure state:** `ScanRunId`, `ScanIssueId`, `ScanKind` (`FULL`/`INCREMENTAL`), `ScanStatus`
+  (`QUEUED`, `RUNNING`, `COMPLETED`, `CANCELLED`, `INTERRUPTED`, `FAILED`), counters, transition
+  validation, safe issues and `MediaFileObservation` are infrastructure-free. Cheap identity is
+  normalized locator + size + nanosecond mtime; device/inode remain unused Task 3.5 hints.
+- **File presence:** `UNCLASSIFIED` preserves every pre-scanner row without fake facts. `PRESENT`
+  and `MISSING` require complete observation/generation/time state. Missing and reappearance retain
+  the same ID and all catalogue/rendition references; no physical retirement or hard deletion is
+  implemented. One `PRESENT` row per source/normalized locator is enforced by a SQLite partial
+  unique index while duplicate `UNCLASSIFIED` and `MISSING` history remains legal.
+- **Legacy policy:** one unambiguous `UNCLASSIFIED` row is adopted in place. Several historical IDs
+  at one locator remain unchanged; scanning creates one new `PRESENT` ID plus a sanitized
+  `scan.ambiguous_legacy_locator` issue. Migration tests preserve Phase 2 runtime/timeline rows and
+  exact Task 3.2 downgrade shape.
+- **Coordinator/transactions:** source validation and run creation, availability/start, bounded
+  observation batches, cancellation, final reconciliation and recovery each use short application-
+  owned UoWs. Filesystem iteration occurs only between transactions. A source revision/root
+  snapshot gates the final transaction, which alone marks unseen present files missing, updates
+  `last_successful_scan_utc` and completes the run.
+- **Safety gates:** unavailable, traversal-failed, cancelled, interrupted or source-changed scans
+  never reconcile missing files or update successful-scan time. Committed batches remain valid.
+  Changed cheap signatures retain the provisional current ID, update observation facts and create
+  `file.changed_observation`; Task 3.5 owns replacement/rename/fingerprint decisions.
+- **Traversal:** the infrastructure adapter reuses Task 3.2 root validation, performs sorted
+  directory-at-a-time depth-first traversal, emits NFC `/`-separated relative locators, never
+  follows file or directory symlinks, stays on the configured root filesystem, skips hidden and
+  documented system/cache directories, applies configurable relative ignore patterns, and treats
+  incomplete directory views as controlled scan failure. Extension matching is case-insensitive
+  against the configurable `.mkv/.mp4/.m4v/.avi/.mov/.webm/.mpg/.mpeg/.ts/.m2ts` allow-list.
+- **Full/incremental:** both enumerate the authoritative eligible view in Task 3.3. Incremental
+  uses the cheap signature to count unchanged observations; no watcher or artificial semantic
+  difference exists. Task 3.4 will consume this state to avoid unnecessary probing.
+- **Execution/progress:** the application executor port has a bounded `ThreadPoolExecutor` adapter
+  with no queue beyond its worker capacity and clean shutdown. Application and SQLite partial
+  uniqueness both enforce one active queued/running scan per source. Provisional settings are
+  batch size `100`, durable progress threshold `50` and worker concurrency `2` (bounded to `1..4`);
+  effective writes occur at the smaller batch/progress bound. Dell measurement must review these.
+- **Cancellation/recovery:** cancellation is durable/idempotent and checked between events, around
+  batches and before reconciliation. Recovery idempotently converts abandoned `QUEUED`/`RUNNING`
+  runs to `INTERRUPTED` with sanitized issues; Task 3.8 will invoke recovery from the product
+  application lifecycle when scan API composition is added.
+- **Requirement status:** Task 3.3 implements `P3-SCAN-03`, `05`, `07`, `08` and `09` in automated
+  development evidence, plus the discovery/non-probe portions of `01`, `02` and `04`. `P3-SCAN-02`
+  remains overall `PARTIAL` pending Task 3.5 rename/replacement/duplicate policy; `04` remains
+  broader `PARTIAL` pending Task 3.4 probe work; `06` remains `PARTIAL` pending reference appliance
+  concurrency/performance evidence. The `P3-SCAN` group and Task 3.3 acceptance remain `PARTIAL`
+  until the documented Dell run.
+- **Scope:** no ffprobe/probe metadata, fingerprints/hashes, replacement or rename matching,
+  duplicates, logical catalogue/rendition/media creation, SMB, API, WebUI, authentication, watcher,
+  broker, systemd unit, Phase 4 or Task 3.4 behavior was added.
 
 ### Task 3.4 — ffprobe metadata and supported-format policy
 

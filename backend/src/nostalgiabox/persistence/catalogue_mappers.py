@@ -6,6 +6,7 @@ from nostalgiabox.domain.catalogue import (
     CatalogueDomainError,
     CatalogueItem,
     CatalogueItemId,
+    FilePresenceState,
     MediaFile,
     MediaFileId,
     MediaSource,
@@ -99,6 +100,15 @@ def media_file_to_record(media_file: MediaFile) -> MediaFileRecord:
         source_id=media_file.source_id.value,
         normalized_relative_locator=media_file.normalized_relative_locator,
         original_relative_locator=media_file.original_relative_locator,
+        presence=media_file.presence.value,
+        size_bytes=media_file.size_bytes,
+        modified_time_ns=media_file.modified_time_ns,
+        device_id=media_file.device_id,
+        inode_id=media_file.inode_id,
+        last_seen_generation=media_file.last_seen_generation,
+        first_observed_utc_us=_optional_datetime_to_microseconds(media_file.first_observed_utc),
+        last_observed_utc_us=_optional_datetime_to_microseconds(media_file.last_observed_utc),
+        missing_since_utc_us=_optional_datetime_to_microseconds(media_file.missing_since_utc),
     )
 
 
@@ -109,8 +119,17 @@ def media_file_from_record(record: MediaFileRecord) -> MediaFile:
             source_id=MediaSourceId(record.source_id),
             normalized_relative_locator=record.normalized_relative_locator,
             original_relative_locator=record.original_relative_locator,
+            presence=FilePresenceState(record.presence),
+            size_bytes=record.size_bytes,
+            modified_time_ns=record.modified_time_ns,
+            device_id=record.device_id,
+            inode_id=record.inode_id,
+            last_seen_generation=record.last_seen_generation,
+            first_observed_utc=_optional_microseconds_to_datetime(record.first_observed_utc_us),
+            last_observed_utc=_optional_microseconds_to_datetime(record.last_observed_utc_us),
+            missing_since_utc=_optional_microseconds_to_datetime(record.missing_since_utc_us),
         )
-    except (CatalogueDomainError, TimelineDomainError) as error:
+    except (CatalogueDomainError, TimelineDomainError, ValueError, OverflowError) as error:
         raise PersistenceConversionError(f"media file {record.id!r} is invalid") from error
 
 

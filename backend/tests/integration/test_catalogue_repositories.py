@@ -133,7 +133,7 @@ def test_distinct_historical_file_ids_can_share_one_source_locator(
     assert repository.get_by_id(second.id) == second
 
 
-def test_media_file_foundation_does_not_invent_lifecycle_columns(
+def test_media_file_scanner_columns_add_only_observation_and_presence_state(
     persistence_engine: Engine,
 ) -> None:
     columns = {column["name"] for column in inspect(persistence_engine).get_columns("media_files")}
@@ -143,7 +143,21 @@ def test_media_file_foundation_does_not_invent_lifecycle_columns(
         "source_id",
         "normalized_relative_locator",
         "original_relative_locator",
+        "presence",
+        "size_bytes",
+        "modified_time_ns",
+        "device_id",
+        "inode_id",
+        "last_seen_generation",
+        "first_observed_utc_us",
+        "last_observed_utc_us",
+        "missing_since_utc_us",
     }
+    assert not any(
+        marker in column
+        for column in columns
+        for marker in ("probe", "codec", "fingerprint", "match", "duplicate")
+    )
 
 
 @pytest.mark.parametrize(

@@ -19,6 +19,22 @@ def test_settings_have_safe_development_defaults() -> None:
     assert settings.mpv_socket_path == Path("/run/nostalgiabox/mpv.sock")
     assert settings.mpv_command_timeout_seconds == 2.0
     assert settings.approved_local_media_roots == (Path("/srv/nostalgiabox/media"),)
+    assert settings.scan_discovery_extensions == (
+        ".mkv",
+        ".mp4",
+        ".m4v",
+        ".avi",
+        ".mov",
+        ".webm",
+        ".mpg",
+        ".mpeg",
+        ".ts",
+        ".m2ts",
+    )
+    assert settings.scan_ignore_patterns == ()
+    assert settings.scan_persistence_batch_size == 100
+    assert settings.scan_progress_update_threshold == 50
+    assert settings.scan_worker_concurrency == 2
 
 
 def test_test_environment_can_use_isolated_in_memory_database() -> None:
@@ -100,3 +116,23 @@ def test_settings_accept_explicit_expert_media_roots() -> None:
 def test_settings_reject_ambiguous_approved_media_roots(roots: tuple[Path, ...]) -> None:
     with pytest.raises(ValidationError, match="approved local media roots"):
         Settings(approved_local_media_roots=roots)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("scan_discovery_extensions", ()),
+        ("scan_discovery_extensions", ("mkv",)),
+        ("scan_discovery_extensions", (".MKV",)),
+        ("scan_discovery_extensions", (".mkv", ".mkv")),
+        ("scan_ignore_patterns", ("../escape",)),
+        ("scan_ignore_patterns", ("/absolute",)),
+        ("scan_persistence_batch_size", 0),
+        ("scan_progress_update_threshold", 0),
+        ("scan_worker_concurrency", 0),
+        ("scan_worker_concurrency", 5),
+    ],
+)
+def test_settings_reject_unsafe_or_unbounded_scan_policy(field: str, value: object) -> None:
+    with pytest.raises(ValidationError):
+        Settings.model_validate({field: value})
