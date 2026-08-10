@@ -2,12 +2,11 @@
 
 ## Status and delivery rules
 
-**Implementation in progress — 2026-08-10.** Task 3.1 is accepted. Task 3.2 local-source lifecycle
-is implemented on its review branch and passes development validation; isolated reference-Dell
-validation remains pending. Later tasks and Phase 3 as a whole are not accepted. Each task requires
-its own branch, review, tests, migration lifecycle where applicable, documentation and
-proportionate reference-Dell evidence. Phase 2 tests and architecture remain mandatory regression
-coverage.
+**Implementation in progress — 2026-08-10.** Tasks 3.1 and 3.2 are accepted for their approved
+scope. Task 3.2 local-source lifecycle passed isolated reference-Dell validation on Debian 13 and
+Python 3.13.5. Later tasks and Phase 3 as a whole are not accepted. Each task requires its own
+branch, review, tests, migration lifecycle where applicable, documentation and proportionate
+reference-Dell evidence. Phase 2 tests and architecture remain mandatory regression coverage.
 
 Rules for every task:
 
@@ -95,15 +94,17 @@ Rules for every task:
 - **Automated tests:** approved-root canonicalization, traversal and symlink escape, protected-root
   rejection, explicit expert roots, readable/missing/permission roots, state transitions, disable/
   retire semantics, no secret/path leakage and transaction conflicts.
-- **Dell validation:** isolated temporary internal folder owned by the test operator.
+- **Dell validation:** `PASS` on Debian 13/Python 3.13.5 using isolated temporary local roots and
+  disposable databases; no production media was scanned and the production database was untouched.
 - **Risks:** symlink escape, case sensitivity and path disclosure.
 - **Exit:** local sources have stable identity and controlled availability with no file discovery.
 
 #### Task 3.2 implementation evidence
 
-- **Development status:** `PARTIAL` pending isolated reference-Dell validation. Windows/Python 3.13
-  passes 287 tests; AF_UNIX, two real directory-symlink cases and the POSIX permission case are
-  skipped only where the development platform cannot provide those capabilities.
+- **Acceptance status:** `PASS` for the approved Task 3.2 local-source scope. Windows/Python 3.13
+  passes 287 tests with four honest platform-capability skips. Reference Debian 13/Python 3.13.5
+  passes all 291 tests with no skips, including AF_UNIX, two real directory-symlink cases and the
+  real POSIX unreadable-directory permission case. The focused Task 3.2 suite passes all 37 tests.
 - **Lifecycle/application:** explicit create/get/list/edit/check/enable/disable/retire services use
   pure values, short unit-of-work transactions and optimistic positive revisions. Name/root edits do
   not change stable identity; stale writes fail. Retirement is terminal in Task 3.2, disables the
@@ -128,11 +129,21 @@ Rules for every task:
   Existing Task 3.1 local or SMB rows retain identity/kind, receive `display_name=id`, remain
   disabled/unknown at revision 1 and receive no fabricated root. `last_successful_scan_utc` remains
   nullable for Task 3.3 ownership.
-- **Requirement status:** local portions of `P3-SRC-01`–`05` and `P3-SRC-07` are implemented in
-  development. Overall `P3-SRC-01`, `02`, `04` and `07` remain `PARTIAL` because SMB/reference-Dell
-  portions remain; `P3-SRC-03` remains `PARTIAL` until scanning proves no missing reconciliation;
-  `P3-SRC-05` remains `PARTIAL` because physical-location retirement/purge belongs to later
-  reconciliation. `P3-SRC-06` is untouched for Task 3.6.
+- **Reference-Dell evidence:** real lifecycle operations as the `nostalgia` service account proved
+  create/read/check, enable/disable independence, missing-root `INVALID_ROOT`, real mode-`000`
+  `PERMISSION_DENIED`, controlled outside-root symlink rejection and non-destructive terminal
+  retirement with exact repository reload. The disposable Alembic lifecycle passed empty upgrade,
+  repeat head, downgrade to `20260809_0002` and re-upgrade to unchanged `20260810_0003 (head)`.
+  Ruff lint/format passed and strict mypy passed across 98 source files.
+- **Requirement status:** the implemented local portions of `P3-SRC-01`–`05` and `P3-SRC-07` are
+  accepted. Overall `P3-SRC-01`, `02` and `04` remain `PARTIAL` pending SMB behavior;
+  `P3-SRC-03` remains `PARTIAL` until scanning proves no missing reconciliation; `P3-SRC-05`
+  remains `PARTIAL` because physical-location retirement/purge belongs to later reconciliation.
+  `P3-SRC-06` is untouched for Task 3.6. Phase 3 remains in progress.
+- **Isolation:** validation used `/tmp/nostalgiabox-task32`, disposable SQLite databases and
+  temporary roots under `/srv/nostalgiabox/media/task32-validation` plus `/tmp`. All were removed.
+  Production data, media, MPV, playback, boot/X, autologin and systemd configuration were not
+  modified.
 - **Scope:** no scanner, media discovery, file lifecycle, active-locator uniqueness, ffprobe,
   fingerprint, SMB adapter/credential, API, WebUI, authentication, worker, WAL or scheduling code
   was added. ADR-012 and ADR-013 remain `Proposed`.

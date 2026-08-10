@@ -2,9 +2,9 @@
 
 ## Status
 
-**In progress — 2026-08-10.** Task 3.1 remains `PASS`. Task 3.2 development validation passes with
-279 tests on Windows/Python 3.13; four platform-capability tests are deferred to the isolated Dell
-run. Task 3.2 reference acceptance, later tasks and Phase 3 as a whole remain in progress.
+**In progress — 2026-08-10.** Tasks 3.1 and 3.2 are `PASS` for their approved scope. Task 3.2
+reference validation on Debian 13/Python 3.13.5 passes all 291 tests with no skips, including the
+four cases gated on Windows. Later tasks and Phase 3 as a whole remain in progress.
 
 Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 `DEFERRED-BY-APPROVED-SCOPE`.
@@ -25,15 +25,15 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 
 | Area/scenario | Automated evidence required | Reference/manual evidence | Status |
 | --- | --- | --- | --- |
-| Phase 2 regression | Complete backend suite, architecture tests, migration compatibility | Debian full suite: 250 passed, no skips, including AF_UNIX | PASS |
+| Phase 2 regression | Complete backend suite, architecture tests, migration compatibility | Latest Debian full suite: 291 passed, no skips, including AF_UNIX | PASS |
 | Additive Phase 2 compatibility migration | Same-ID catalogue backfill; unchanged `media_items`, timeline FKs, runtime projection and lossless downgrade | Disposable Phase 2-shaped Dell DB lifecycle passed | PASS |
 | Catalogue item without rendition | Persist/query logical identity without creating a Phase 2 playable row | Not required | PASS |
 | Historical file identity at reused locator | Two stable `MediaFile` IDs may share one source/normalized locator; composite lookup index is non-unique; blank IDs/locators fail DB checks | Not required | PASS |
 | One active file per source/locator | Add transactional and database-backed active-only uniqueness after media-file lifecycle/state exists | Owned by future scanning/reconciliation lifecycle; not implemented in Task 3.1 | PLANNED |
-| Local source create/read/edit/test/enable/disable | Pure service, unit-of-work/revision conflicts, real temporary-root adapter and exact persistence round trip pass | Dell readable/missing source smoke pending | PARTIAL |
-| Local availability and diagnostics | Enabled/availability remain independent; fake permission/invalid/unavailable mapping, recovery clearing and exact UTC check pass | Real permission denial as `nostalgia` pending | PARTIAL |
+| Local source create/read/edit/test/enable/disable | Pure service, unit-of-work/revision conflicts, real temporary-root adapter and exact persistence round trip pass | Dell readable/missing source lifecycle passed as `nostalgia` | PASS |
+| Local availability and diagnostics | Enabled/availability remain independent; permission/invalid/unavailable mapping, recovery clearing and exact UTC check pass | Real mode-`000` permission denial as `nostalgia` returned `PERMISSION_DENIED` | PASS |
 | Initial local scan | Temporary tree → migrated DB → file/catalogue projections | Dell temporary local folder | PLANNED |
-| Local allowed-root safety | Canonical containment, traversal/sibling-prefix/protected-root rejection, explicit expert allow-list and same-root/escape symlink policy implemented | Dell symlink and permission smoke pending | PARTIAL |
+| Local allowed-root safety | Canonical containment, traversal/sibling-prefix/protected-root rejection, explicit expert allow-list and same-root/escape symlink policy implemented | Dell real symlink, retarget, traversal and permission cases passed | PASS |
 | Unchanged incremental scan | IDs/revisions/probe calls unchanged | Measured no-op scan | PLANNED |
 | File addition | New file and metadata visible once | Local and NAS fixture | PLANNED |
 | File removal | Successful complete scan marks missing, never deletes logical item | Local fixture | PLANNED |
@@ -63,7 +63,7 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Playback while scanning | Runtime reads/MPV fake continue during batched writes | Real MPV playback during scan | PLANNED |
 | Concurrent WebUI reads | Bounded latency/no lock failures while scan writes | Desktop/phone browse during scan | PLANNED |
 | SQLite busy/retry bounds | Transient busy recovers; persistent busy fails safely | Dell WAL/busy benchmark | PLANNED |
-| Migration lifecycle | Task 3.2 empty/current/repeat/downgrade/re-upgrade and populated Phase 2/Task 3.1 preservation pass on Windows | Task 3.1 Dell evidence remains PASS; `20260810_0003` Dell lifecycle pending | PARTIAL |
+| Migration lifecycle | Task 3.2 empty/current/repeat/downgrade/re-upgrade and populated Phase 2/Task 3.1 preservation pass | Dell lifecycle passed through unchanged `20260810_0003`, downgrade to `20260809_0002`, and re-upgrade | PASS |
 | Source API | Validation, lifecycle, test, redaction, status codes | Live API smoke | PLANNED |
 | Scan API | 202/job ID, progress/history/issues, conflict/cancel | Live scan polling | PLANNED |
 | Catalogue API | Pagination/search/filter/detail/attention/corrections/ETag | Live browser use | PLANNED |
@@ -74,7 +74,7 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | WebUI desktop | Complete setup/source/scan/library/correction workflow | Current desktop browsers | PLANNED |
 | WebUI phone | Responsive equivalent workflow and touch targets | Current phone browser | PLANNED |
 | Accessibility | Automated rules plus keyboard/focus/error semantics | Manual keyboard/contrast review | PLANNED |
-| Source deletion/retirement | Source retirement is terminal, disables without deleting source/file/catalogue data; physical-location retirement/purge remains later work | Dell non-destructive source retirement pending | PARTIAL |
+| Source deletion/retirement | Source retirement is terminal, disables without deleting source/file/catalogue data; physical-location retirement/purge remains later work | Dell non-destructive source retirement and exact repository reload passed; physical-location lifecycle remains later | PARTIAL |
 | Artwork absent/failure | Placeholder; no scan/playback failure | Browser smoke | PLANNED |
 | Secrets/artifacts | Git audit for media/DB/WAL/cache/log/token/env/build output | Appliance paths outside checkout | PLANNED |
 
@@ -144,12 +144,37 @@ were not modified. This evidence accepts only Task 3.1. Active-file locator uniq
 lifecycle, scanning, ffprobe, fingerprints, reconciliation, SMB/NAS, matching, WebUI,
 authentication and Phase 4 scheduling integration remain later work.
 
-### Task 3.2 isolated reference-Dell procedure — pending
+### Task 3.2 isolated reference-Dell evidence — PASS
 
-Run from an existing repository on Debian 13. The procedure uses a temporary worktree, isolated
-virtual environment, disposable databases and one temporary folder beneath the approved appliance
-media root. It does not scan the production library or modify the production database, MPV,
-boot/X, autologin or systemd configuration.
+Validation completed on Debian 13 with Python 3.13.5 from temporary worktree
+`/tmp/nostalgiabox-task32`. It used an isolated virtual environment, disposable SQLite databases,
+temporary directories beneath `/srv/nostalgiabox/media/task32-validation` and a temporary
+outside-root directory under `/tmp`. The production database was not modified, no production media
+was scanned, and MPV, playback, boot/X, autologin and systemd configuration were untouched.
+
+- Full `pytest`: **291 passed, no skips**. Phase 2 and Task 3.1 regressions passed. Linux AF_UNIX,
+  both real symlink-capability cases and the real POSIX permission test all ran and passed.
+- Focused Task 3.2 suite: **37 passed, no skips**. This covered approved-root containment and
+  descendants; traversal, sibling-prefix, absolute-outside, protected-root and symlink escape
+  rejection; same-root symlinks and retarget revalidation; controlled missing/non-directory and
+  filesystem errors; real and deterministic permission classification; stable identity and root
+  edit policy; availability invalidation/preservation; lifecycle, retirement, revisions,
+  repositories and Task 3.1 migration compatibility.
+- `ruff check .`: **PASS**. `ruff format --check .`: **PASS**, 102 files already formatted.
+- `mypy`: **PASS**, no issues across 98 source files.
+- Disposable Alembic lifecycle: empty upgrade through `20260808_0001` and `20260809_0002` to
+  `20260810_0003 (head)`, repeat head, downgrade to `20260809_0002`, and re-upgrade to unchanged
+  `20260810_0003 (head)`: **PASS**.
+- Real source proof as `nostalgia`: create began `UNKNOWN` and enabled; check returned `AVAILABLE`;
+  disable/enable changed only enabled state; a temporarily renamed root returned `INVALID_ROOT`
+  while remaining enabled; a mode-`000` root returned `PERMISSION_DENIED`; an outside-root symlink
+  was rejected with controlled `InvalidSourceRootError`; terminal retirement populated
+  `retired_utc`, disabled the source and preserved an exactly reloadable repository row: **PASS**.
+- Cleanup: temporary source/outside-root directories, hardware and migration databases, isolated
+  environment and worktree were removed. Production NostalgiaBox data and appliance configuration
+  were not altered.
+
+The executed procedure was:
 
 ```bash
 set -euo pipefail
@@ -273,9 +298,10 @@ cd -
 git worktree remove --force /tmp/nostalgiabox-task32
 ```
 
-Record Python, full/focused pytest totals, AF_UNIX, real symlink and permission results, Ruff/mypy,
-all Alembic revisions, lifecycle state observations and cleanup. Keep Task 3.2 reference status
-`PARTIAL` until this exact isolated proof is physically completed.
+This evidence accepts the behavior owned by Task 3.2 only. Scanning, `MediaFile` active/missing/
+retired state, physical-location retirement, active-only locator uniqueness, successful-scan
+timestamps, SMB/NAS and credentials, APIs, WebUI and Task 3.3+ remain `PARTIAL` or `PLANNED` as
+shown above. Phase 3 remains in progress; Task 3.3 has not started.
 
 Use isolated temporary sources, a least-privilege test share/account and operator-owned test media:
 
