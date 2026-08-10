@@ -1,5 +1,7 @@
 """Explicit conversion boundary for catalogue foundation records."""
 
+from datetime import datetime
+
 from nostalgiabox.domain.catalogue import (
     CatalogueDomainError,
     CatalogueItem,
@@ -11,9 +13,15 @@ from nostalgiabox.domain.catalogue import (
     MediaSourceKind,
     PlayableRendition,
     PlayableRenditionId,
+    SourceAvailability,
 )
 from nostalgiabox.domain.exceptions import TimelineDomainError
-from nostalgiabox.persistence.codecs import microseconds_to_timedelta, timedelta_to_microseconds
+from nostalgiabox.persistence.codecs import (
+    datetime_to_epoch_microseconds,
+    epoch_microseconds_to_datetime,
+    microseconds_to_timedelta,
+    timedelta_to_microseconds,
+)
 from nostalgiabox.persistence.errors import PersistenceConversionError
 from nostalgiabox.persistence.models import (
     CatalogueItemRecord,
@@ -35,14 +43,54 @@ def catalogue_item_from_record(record: CatalogueItemRecord) -> CatalogueItem:
 
 
 def media_source_to_record(source: MediaSource) -> MediaSourceRecord:
-    return MediaSourceRecord(id=source.id.value, kind=source.kind.value)
+    return MediaSourceRecord(
+        id=source.id.value,
+        kind=source.kind.value,
+        display_name=source.display_name,
+        configured_root=source.configured_root,
+        enabled=source.enabled,
+        availability=source.availability.value,
+        last_checked_utc_us=_optional_datetime_to_microseconds(source.last_checked_utc),
+        last_successful_scan_utc_us=_optional_datetime_to_microseconds(
+            source.last_successful_scan_utc
+        ),
+        current_error_code=source.current_error_code,
+        current_error_message=source.current_error_message,
+        retired_utc_us=_optional_datetime_to_microseconds(source.retired_utc),
+        revision=source.revision,
+    )
 
 
 def media_source_from_record(record: MediaSourceRecord) -> MediaSource:
     try:
-        return MediaSource(id=MediaSourceId(record.id), kind=MediaSourceKind(record.kind))
-    except (CatalogueDomainError, TimelineDomainError, ValueError) as error:
+        return MediaSource(
+            id=MediaSourceId(record.id),
+            kind=MediaSourceKind(record.kind),
+            display_name=record.display_name,
+            configured_root=record.configured_root,
+            enabled=record.enabled,
+            availability=SourceAvailability(record.availability),
+            last_checked_utc=_optional_microseconds_to_datetime(record.last_checked_utc_us),
+            last_successful_scan_utc=_optional_microseconds_to_datetime(
+                record.last_successful_scan_utc_us
+            ),
+            current_error_code=record.current_error_code,
+            current_error_message=record.current_error_message,
+            retired_utc=_optional_microseconds_to_datetime(record.retired_utc_us),
+            revision=record.revision,
+        )
+    except (CatalogueDomainError, TimelineDomainError, ValueError, OverflowError) as error:
         raise PersistenceConversionError(f"media source {record.id!r} is invalid") from error
+
+
+def _optional_datetime_to_microseconds(value: datetime | None) -> int | None:
+    if value is None:
+        return None
+    return datetime_to_epoch_microseconds(value)
+
+
+def _optional_microseconds_to_datetime(value: int | None) -> datetime | None:
+    return None if value is None else epoch_microseconds_to_datetime(value)
 
 
 def media_file_to_record(media_file: MediaFile) -> MediaFileRecord:

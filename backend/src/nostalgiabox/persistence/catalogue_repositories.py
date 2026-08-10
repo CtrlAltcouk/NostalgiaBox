@@ -2,7 +2,7 @@
 
 from datetime import timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import exists, or_, select, update
 from sqlalchemy.orm import Session
 
 from nostalgiabox.application.catalogue import CataloguePlaybackProjection
@@ -59,11 +59,37 @@ class SqlAlchemyMediaSourceRepository:
         if record is None:
             self._session.add(media_source_to_record(source))
         else:
-            record.kind = source.kind.value
+            _copy_source_values(record, source)
+
+    def add(self, source: MediaSource) -> None:
+        self._session.add(media_source_to_record(source))
 
     def get_by_id(self, source_id: MediaSourceId) -> MediaSource | None:
         record = self._session.get(MediaSourceRecord, source_id.value)
         return None if record is None else media_source_from_record(record)
+
+    def list(self) -> tuple[MediaSource, ...]:
+        records = self._session.scalars(select(MediaSourceRecord).order_by(MediaSourceRecord.id))
+        return tuple(media_source_from_record(record) for record in records)
+
+    def update(self, source: MediaSource, expected_revision: int) -> bool:
+        values = _source_values(source)
+        result = self._session.execute(
+            update(MediaSourceRecord)
+            .where(
+                MediaSourceRecord.id == source.id.value,
+                MediaSourceRecord.revision == expected_revision,
+            )
+            .values(**values)
+        )
+        return result.rowcount == 1
+
+    def has_media_files(self, source_id: MediaSourceId) -> bool:
+        return bool(
+            self._session.scalar(
+                select(exists().where(MediaFileRecord.source_id == source_id.value))
+            )
+        )
 
 
 class SqlAlchemyMediaFileRepository:
@@ -169,3 +195,25 @@ class SqlAlchemyLegacyPlaybackProjectionResolver:
             segment_duration=stored_media.media_item.duration,
             logical_playable_duration=stored_media.media_item.duration,
         )
+
+
+def _source_values(source: MediaSource) -> dict[str, object]:
+    record = media_source_to_record(source)
+    return {
+        "kind": record.kind,
+        "display_name": record.display_name,
+        "configured_root": record.configured_root,
+        "enabled": record.enabled,
+        "availability": record.availability,
+        "last_checked_utc_us": record.last_checked_utc_us,
+        "last_successful_scan_utc_us": record.last_successful_scan_utc_us,
+        "current_error_code": record.current_error_code,
+        "current_error_message": record.current_error_message,
+        "retired_utc_us": record.retired_utc_us,
+        "revision": record.revision,
+    }
+
+
+def _copy_source_values(record: MediaSourceRecord, source: MediaSource) -> None:
+    for name, value in _source_values(source).items():
+        setattr(record, name, value)

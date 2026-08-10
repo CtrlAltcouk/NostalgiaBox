@@ -2,11 +2,12 @@
 
 ## Status and delivery rules
 
-**Implementation in progress — 2026-08-09.** Task 3.1 is implemented and accepted, including its
-isolated reference-Dell validation. Later tasks and Phase 3 as a whole are not implemented or
-accepted. Each task requires its own branch, review, tests, migration lifecycle where applicable,
-documentation and proportionate reference-Dell evidence. Phase 2 tests and architecture remain
-mandatory regression coverage.
+**Implementation in progress — 2026-08-10.** Task 3.1 is accepted. Task 3.2 local-source lifecycle
+is implemented on its review branch and passes development validation; isolated reference-Dell
+validation remains pending. Later tasks and Phase 3 as a whole are not accepted. Each task requires
+its own branch, review, tests, migration lifecycle where applicable, documentation and
+proportionate reference-Dell evidence. Phase 2 tests and architecture remain mandatory regression
+coverage.
 
 Rules for every task:
 
@@ -97,6 +98,41 @@ Rules for every task:
 - **Dell validation:** isolated temporary internal folder owned by the test operator.
 - **Risks:** symlink escape, case sensitivity and path disclosure.
 - **Exit:** local sources have stable identity and controlled availability with no file discovery.
+
+#### Task 3.2 implementation evidence
+
+- **Development status:** `PARTIAL` pending isolated reference-Dell validation. Windows/Python 3.13
+  passes 279 tests; AF_UNIX, two real directory-symlink cases and the POSIX permission case are
+  skipped only where the development platform cannot provide those capabilities.
+- **Lifecycle/application:** explicit create/get/list/edit/check/enable/disable/retire services use
+  pure values, short unit-of-work transactions and optimistic positive revisions. Name/root edits do
+  not change stable identity; stale writes fail. Retirement is terminal in Task 3.2, disables the
+  source and preserves source, file, catalogue, rendition and timeline rows.
+- **Availability:** `UNKNOWN`, `AVAILABLE`, `UNAVAILABLE`, `AUTHENTICATION_FAILED`,
+  `PERMISSION_DENIED`, `INVALID_ROOT` and `ERROR` remain distinct from enabled/retired state.
+  Checks use the injected clock, persist only sanitized code/message diagnostics, clear recovered
+  errors and never modify `last_successful_scan_utc`.
+- **Root security:** deployment setting `approved_local_media_roots` defaults to
+  `/srv/nostalgiabox/media` and admits expert roots only when explicitly configured. The local
+  adapter accepts absolute configured roots only, uses component-aware canonical containment,
+  rejects traversal, NUL, sibling-prefix, protected-root and symlink escapes, permits same-root
+  symlinks, and re-resolves every availability test. It opens only the directory once with no media
+  enumeration or recursion.
+- **Root edits:** an unpopulated source may change root; any `MediaFile` reference produces a typed
+  conflict requiring retire plus a new source identity rather than silently repointing history.
+- **Persistence:** revision `20260810_0003` adds only source configuration, independent lifecycle/
+  availability state, exact UTC timestamps, sanitized errors and revision/index/check constraints.
+  Existing Task 3.1 local or SMB rows retain identity/kind, receive `display_name=id`, remain
+  disabled/unknown at revision 1 and receive no fabricated root. `last_successful_scan_utc` remains
+  nullable for Task 3.3 ownership.
+- **Requirement status:** local portions of `P3-SRC-01`–`05` and `P3-SRC-07` are implemented in
+  development. Overall `P3-SRC-01`, `02`, `04` and `07` remain `PARTIAL` because SMB/reference-Dell
+  portions remain; `P3-SRC-03` remains `PARTIAL` until scanning proves no missing reconciliation;
+  `P3-SRC-05` remains `PARTIAL` because physical-location retirement/purge belongs to later
+  reconciliation. `P3-SRC-06` is untouched for Task 3.6.
+- **Scope:** no scanner, media discovery, file lifecycle, active-locator uniqueness, ffprobe,
+  fingerprint, SMB adapter/credential, API, WebUI, authentication, worker, WAL or scheduling code
+  was added. ADR-012 and ADR-013 remain `Proposed`.
 
 ### Task 3.3 — Scan coordinator and deterministic local discovery
 

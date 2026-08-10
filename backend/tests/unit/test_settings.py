@@ -18,6 +18,7 @@ def test_settings_have_safe_development_defaults() -> None:
     assert settings.local_timezone == "Europe/London"
     assert settings.mpv_socket_path == Path("/run/nostalgiabox/mpv.sock")
     assert settings.mpv_command_timeout_seconds == 2.0
+    assert settings.approved_local_media_roots == (Path("/srv/nostalgiabox/media"),)
 
 
 def test_test_environment_can_use_isolated_in_memory_database() -> None:
@@ -60,6 +61,10 @@ def test_settings_can_be_overridden_by_environment(monkeypatch: MonkeyPatch) -> 
     monkeypatch.setenv("NOSTALGIABOX_LOCAL_TIMEZONE", "UTC")
     monkeypatch.setenv("NOSTALGIABOX_MPV_SOCKET_PATH", "/tmp/explicit-test.sock")
     monkeypatch.setenv("NOSTALGIABOX_MPV_COMMAND_TIMEOUT_SECONDS", "3.5")
+    monkeypatch.setenv(
+        "NOSTALGIABOX_APPROVED_LOCAL_MEDIA_ROOTS",
+        '["/srv/nostalgiabox/media", "/mnt/expert-media"]',
+    )
 
     settings = Settings(_env_file=None)
 
@@ -69,8 +74,29 @@ def test_settings_can_be_overridden_by_environment(monkeypatch: MonkeyPatch) -> 
     assert settings.local_timezone == "UTC"
     assert settings.mpv_socket_path == Path("/tmp/explicit-test.sock")
     assert settings.mpv_command_timeout_seconds == 3.5
+    assert settings.approved_local_media_roots == (
+        Path("/srv/nostalgiabox/media"),
+        Path("/mnt/expert-media"),
+    )
 
 
 def test_settings_reject_non_positive_mpv_timeout() -> None:
     with pytest.raises(ValidationError):
         Settings(mpv_command_timeout_seconds=0)
+
+
+def test_settings_accept_explicit_expert_media_roots() -> None:
+    roots = (Path("/srv/nostalgiabox/media"), Path("/mnt/expert-media"))
+
+    settings = Settings(approved_local_media_roots=roots)
+
+    assert settings.approved_local_media_roots == roots
+
+
+@pytest.mark.parametrize(
+    "roots",
+    [(Path("relative"),), (Path("/duplicate"), Path("/duplicate"))],
+)
+def test_settings_reject_ambiguous_approved_media_roots(roots: tuple[Path, ...]) -> None:
+    with pytest.raises(ValidationError, match="approved local media roots"):
+        Settings(approved_local_media_roots=roots)

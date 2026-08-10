@@ -2,9 +2,9 @@
 
 ## Status
 
-**In progress — 2026-08-09.** Task 3.1 is `PASS`, including isolated reference-Dell acceptance.
-Debian 13/Python 3.13.5 passed all 250 tests with no skips, including the Linux AF_UNIX integration
-path. Later Phase 3 tasks and Phase 3 as a whole remain in progress.
+**In progress — 2026-08-10.** Task 3.1 remains `PASS`. Task 3.2 development validation passes with
+279 tests on Windows/Python 3.13; four platform-capability tests are deferred to the isolated Dell
+run. Task 3.2 reference acceptance, later tasks and Phase 3 as a whole remain in progress.
 
 Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 `DEFERRED-BY-APPROVED-SCOPE`.
@@ -30,8 +30,10 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Catalogue item without rendition | Persist/query logical identity without creating a Phase 2 playable row | Not required | PASS |
 | Historical file identity at reused locator | Two stable `MediaFile` IDs may share one source/normalized locator; composite lookup index is non-unique; blank IDs/locators fail DB checks | Not required | PASS |
 | One active file per source/locator | Add transactional and database-backed active-only uniqueness after media-file lifecycle/state exists | Owned by future scanning/reconciliation lifecycle; not implemented in Task 3.1 | PLANNED |
+| Local source create/read/edit/test/enable/disable | Pure service, unit-of-work/revision conflicts, real temporary-root adapter and exact persistence round trip pass | Dell readable/missing source smoke pending | PARTIAL |
+| Local availability and diagnostics | Enabled/availability remain independent; fake permission/invalid/unavailable mapping, recovery clearing and exact UTC check pass | Real permission denial as `nostalgia` pending | PARTIAL |
 | Initial local scan | Temporary tree → migrated DB → file/catalogue projections | Dell temporary local folder | PLANNED |
-| Local allowed-root safety | Canonical containment, traversal/symlink/protected-root rejection and explicit expert-root allow-list | Dell approved-root permission smoke | PLANNED |
+| Local allowed-root safety | Canonical containment, traversal/sibling-prefix/protected-root rejection, explicit expert allow-list and same-root/escape symlink policy implemented | Dell symlink and permission smoke pending | PARTIAL |
 | Unchanged incremental scan | IDs/revisions/probe calls unchanged | Measured no-op scan | PLANNED |
 | File addition | New file and metadata visible once | Local and NAS fixture | PLANNED |
 | File removal | Successful complete scan marks missing, never deletes logical item | Local fixture | PLANNED |
@@ -61,7 +63,7 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Playback while scanning | Runtime reads/MPV fake continue during batched writes | Real MPV playback during scan | PLANNED |
 | Concurrent WebUI reads | Bounded latency/no lock failures while scan writes | Desktop/phone browse during scan | PLANNED |
 | SQLite busy/retry bounds | Transient busy recovers; persistent busy fails safely | Dell WAL/busy benchmark | PLANNED |
-| Migration lifecycle | Empty and Phase-2 DB additive upgrade/current/repeat/downgrade/re-upgrade with unchanged compatibility rows/FKs | Disposable Dell DB passed through `20260808_0001` and `20260809_0002` | PASS |
+| Migration lifecycle | Task 3.2 empty/current/repeat/downgrade/re-upgrade and populated Phase 2/Task 3.1 preservation pass on Windows | Task 3.1 Dell evidence remains PASS; `20260810_0003` Dell lifecycle pending | PARTIAL |
 | Source API | Validation, lifecycle, test, redaction, status codes | Live API smoke | PLANNED |
 | Scan API | 202/job ID, progress/history/issues, conflict/cancel | Live scan polling | PLANNED |
 | Catalogue API | Pagination/search/filter/detail/attention/corrections/ETag | Live browser use | PLANNED |
@@ -72,7 +74,7 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | WebUI desktop | Complete setup/source/scan/library/correction workflow | Current desktop browsers | PLANNED |
 | WebUI phone | Responsive equivalent workflow and touch targets | Current phone browser | PLANNED |
 | Accessibility | Automated rules plus keyboard/focus/error semantics | Manual keyboard/contrast review | PLANNED |
-| Source deletion/retirement | Non-destructive default and FK-protected purge | Browser/API confirmation | PLANNED |
+| Source deletion/retirement | Source retirement is terminal, disables without deleting source/file/catalogue data; physical-location retirement/purge remains later work | Dell non-destructive source retirement pending | PARTIAL |
 | Artwork absent/failure | Placeholder; no scan/playback failure | Browser smoke | PLANNED |
 | Secrets/artifacts | Git audit for media/DB/WAL/cache/log/token/env/build output | Appliance paths outside checkout | PLANNED |
 
@@ -141,6 +143,139 @@ database and media library were not accessed, and MPV, boot/X, autologin and sys
 were not modified. This evidence accepts only Task 3.1. Active-file locator uniqueness, source
 lifecycle, scanning, ffprobe, fingerprints, reconciliation, SMB/NAS, matching, WebUI,
 authentication and Phase 4 scheduling integration remain later work.
+
+### Task 3.2 isolated reference-Dell procedure — pending
+
+Run from an existing repository on Debian 13. The procedure uses a temporary worktree, isolated
+virtual environment, disposable databases and one temporary folder beneath the approved appliance
+media root. It does not scan the production library or modify the production database, MPV,
+boot/X, autologin or systemd configuration.
+
+```bash
+set -euo pipefail
+git fetch origin
+test ! -e /tmp/nostalgiabox-task32
+git worktree add --detach /tmp/nostalgiabox-task32 \
+  origin/codex/phase-3.2-local-source-lifecycle
+cd /tmp/nostalgiabox-task32/backend
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -e '.[dev,linux-input]'
+
+.venv/bin/python -m pytest
+.venv/bin/python -m ruff check .
+.venv/bin/python -m ruff format --check .
+.venv/bin/python -m mypy
+.venv/bin/python -m pytest -vv \
+  tests/unit/source/test_local.py \
+  tests/unit/application/test_sources.py \
+  tests/integration/test_source_repositories.py \
+  tests/integration/test_source_migration.py \
+  tests/integration/test_migrations.py
+
+# Explicit disposable Alembic lifecycle.
+migration_root="$(mktemp -d /tmp/nostalgiabox-task32-migration.XXXXXX)"
+export NOSTALGIABOX_ENVIRONMENT=test
+export NOSTALGIABOX_DATABASE_URL="sqlite+pysqlite:///$migration_root/lifecycle.db"
+.venv/bin/alembic upgrade head
+.venv/bin/alembic current
+.venv/bin/alembic upgrade head
+.venv/bin/alembic downgrade 20260809_0002
+.venv/bin/alembic current
+.venv/bin/alembic upgrade head
+.venv/bin/alembic current
+unset NOSTALGIABOX_DATABASE_URL NOSTALGIABOX_ENVIRONMENT
+
+# Real local-source proof as the production service account.
+validation_root=/srv/nostalgiabox/media/task32-validation
+hardware_db=/tmp/nostalgiabox-task32-hardware.sqlite3
+outside_root=/tmp/nostalgiabox-task32-outside
+test ! -e "$validation_root"
+test ! -e "$hardware_db"
+test ! -e "$outside_root"
+sudo install -d -o nostalgia -g nostalgia -m 0700 \
+  "$validation_root/readable" "$validation_root/unreadable" "$outside_root"
+sudo -u nostalgia env \
+  NOSTALGIABOX_ENVIRONMENT=test \
+  NOSTALGIABOX_DATABASE_URL="sqlite+pysqlite:///$hardware_db" \
+  .venv/bin/alembic upgrade head
+sudo -u nostalgia env \
+  NOSTALGIABOX_ENVIRONMENT=test \
+  NOSTALGIABOX_DATABASE_URL="sqlite+pysqlite:///$hardware_db" \
+  .venv/bin/python - <<'PY'
+from pathlib import Path
+
+from nostalgiabox.application.sources import InvalidSourceRootError, LocalSourceService
+from nostalgiabox.config.settings import Settings
+from nostalgiabox.domain import MediaSourceId, SourceAvailability, SystemClock
+from nostalgiabox.persistence.catalogue_repositories import SqlAlchemyMediaSourceRepository
+from nostalgiabox.persistence.database import create_engine, create_session_factory
+from nostalgiabox.persistence.source_uow import SqlAlchemySourceUnitOfWork
+from nostalgiabox.source.local import LocalFilesystemSourceGateway
+
+root = Path("/srv/nostalgiabox/media/task32-validation")
+readable = root / "readable"
+unreadable = root / "unreadable"
+outside = Path("/tmp/nostalgiabox-task32-outside")
+database_url = "sqlite+pysqlite:////tmp/nostalgiabox-task32-hardware.sqlite3"
+engine = create_engine(Settings(environment="test", database_url=database_url))
+factory = create_session_factory(engine)
+ids = iter((MediaSourceId("dell-readable"), MediaSourceId("dell-permission")))
+gateway = LocalFilesystemSourceGateway([str(root)])
+service = LocalSourceService(
+    lambda: SqlAlchemySourceUnitOfWork(factory), gateway, SystemClock(), lambda: next(ids)
+)
+
+created = service.create_local_source("Dell readable", str(readable), enabled=True)
+available = service.check_availability(created.id)
+assert available.availability is SourceAvailability.AVAILABLE
+disabled = service.disable_source(created.id, available.revision)
+enabled = service.enable_source(created.id, disabled.revision)
+assert not disabled.enabled and enabled.enabled
+
+readable.rename(root / "readable-missing")
+missing = service.check_availability(created.id)
+assert missing.availability is SourceAvailability.INVALID_ROOT and missing.enabled
+(root / "readable-missing").rename(readable)
+
+permission_source = service.create_local_source(
+    "Dell permission", str(unreadable), enabled=True
+)
+unreadable.chmod(0)
+try:
+    denied = service.check_availability(permission_source.id)
+finally:
+    unreadable.chmod(0o700)
+assert denied.availability is SourceAvailability.PERMISSION_DENIED
+
+escape = root / "escape"
+escape.symlink_to(outside, target_is_directory=True)
+try:
+    gateway.validate_root(str(escape))
+except InvalidSourceRootError:
+    pass
+else:
+    raise AssertionError("outside-root symlink was accepted")
+
+retired = service.retire_source(created.id, missing.revision)
+assert retired.retired_utc is not None and not retired.enabled
+with factory() as session:
+    repository = SqlAlchemyMediaSourceRepository(session)
+    assert repository.get_by_id(created.id) == retired
+    assert not repository.has_media_files(created.id)
+engine.dispose()
+PY
+
+# Remove every disposable artifact and worktree.
+sudo -u nostalgia rm -r -- "$validation_root" "$outside_root"
+sudo -u nostalgia rm -- "$hardware_db"
+rm -r -- "$migration_root"
+cd -
+git worktree remove --force /tmp/nostalgiabox-task32
+```
+
+Record Python, full/focused pytest totals, AF_UNIX, real symlink and permission results, Ruff/mypy,
+all Alembic revisions, lifecycle state observations and cleanup. Keep Task 3.2 reference status
+`PARTIAL` until this exact isolated proof is physically completed.
 
 Use isolated temporary sources, a least-privilege test share/account and operator-owned test media:
 

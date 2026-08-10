@@ -6,7 +6,7 @@ from alembic import command
 from alembic.config import Config
 from alembic.migration import MigrationContext
 from pytest import MonkeyPatch
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 
 from nostalgiabox.config.settings import Settings
 from nostalgiabox.persistence.database import create_engine
@@ -35,8 +35,9 @@ def test_initial_migration_upgrade_repeat_downgrade_and_reupgrade(
     command.upgrade(config, "head")
     command.upgrade(config, "head")
     assert _table_names(database_url) == _TABLES
-    assert _current_revision(database_url) == "20260809_0002"
+    assert _current_revision(database_url) == "20260810_0003"
     _assert_catalogue_foundation_schema(database_url)
+    _assert_source_lifecycle_schema(database_url)
 
     command.downgrade(config, "base")
     assert _table_names(database_url) == {"alembic_version"}
@@ -86,5 +87,47 @@ def _assert_catalogue_foundation_schema(database_url: str) -> None:
             constraint["name"]
             for constraint in inspector.get_check_constraints("playable_renditions")
         }
+    finally:
+        engine.dispose()
+
+
+def _assert_source_lifecycle_schema(database_url: str) -> None:
+    engine = create_engine(Settings(environment="test", database_url=database_url))
+    try:
+        inspector = inspect(engine)
+        columns = {column["name"] for column in inspector.get_columns("media_sources")}
+        assert {
+            "display_name",
+            "configured_root",
+            "enabled",
+            "availability",
+            "last_checked_utc_us",
+            "last_successful_scan_utc_us",
+            "current_error_code",
+            "current_error_message",
+            "retired_utc_us",
+            "revision",
+        }.issubset(columns)
+        indexes = {index["name"] for index in inspector.get_indexes("media_sources")}
+        assert "ix_media_sources_enabled_availability" in indexes
+        with engine.connect() as connection:
+            table_sql = connection.scalar(
+                text(
+                    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'media_sources'"
+                )
+            )
+        assert table_sql is not None
+        for constraint_name in {
+            "ck_media_sources_display_name_nonblank",
+            "ck_media_sources_configured_root_nonblank",
+            "ck_media_sources_enabled_boolean",
+            "ck_media_sources_availability",
+            "ck_media_sources_error_code_nonblank",
+            "ck_media_sources_error_message_nonblank",
+            "ck_media_sources_error_pair",
+            "ck_media_sources_retired_disabled",
+            "ck_media_sources_revision_positive",
+        }:
+            assert constraint_name in table_sql
     finally:
         engine.dispose()
