@@ -169,6 +169,12 @@ class _ObservationOutcome(StrEnum):
     ALREADY_APPLIED = "already_applied"
 
 
+class _BatchPersistenceResult(StrEnum):
+    APPLIED = "applied"
+    CANCELLATION_REQUESTED = "cancellation_requested"
+    SOURCE_CHANGED = "source_changed"
+
+
 class ScanCoordinator:
     """Create durable runs and execute local discovery in bounded short transactions."""
 
@@ -250,13 +256,20 @@ class ScanCoordinator:
                     break
                 batch.append(event)
                 if len(batch) >= self._event_batch_size:
-                    if self._persist_batch(run_id, tuple(batch)):
+                    result = self._persist_batch(run_id, tuple(batch))
+                    if result is _BatchPersistenceResult.CANCELLATION_REQUESTED:
                         self._cancel(run_id)
                         return
+                    if result is _BatchPersistenceResult.SOURCE_CHANGED:
+                        return
                     batch.clear()
-            if batch and self._persist_batch(run_id, tuple(batch)):
-                self._cancel(run_id)
-                return
+            if batch:
+                result = self._persist_batch(run_id, tuple(batch))
+                if result is _BatchPersistenceResult.CANCELLATION_REQUESTED:
+                    self._cancel(run_id)
+                    return
+                if result is _BatchPersistenceResult.SOURCE_CHANGED:
+                    return
             if self._cancellation_requested(run_id):
                 self._cancel(run_id)
                 return
@@ -385,12 +398,25 @@ class ScanCoordinator:
             unit_of_work.commit()
             return running
 
-    def _persist_batch(self, run_id: ScanRunId, events: tuple[TraversalEvent, ...]) -> bool:
+    def _persist_batch(
+        self, run_id: ScanRunId, events: tuple[TraversalEvent, ...]
+    ) -> _BatchPersistenceResult:
         observed_at = self._now("scan observation")
         with self._unit_of_work_factory() as unit_of_work:
             run = _require_run(unit_of_work.runs, run_id)
             if run.status is not ScanStatus.RUNNING or run.cancellation_requested:
-                return run.cancellation_requested
+                return _BatchPersistenceResult.CANCELLATION_REQUESTED
+            source = unit_of_work.sources.get_by_id(run.source_id)
+            if not _source_matches_snapshot(source, run):
+                self._interrupt_in_uow(
+                    unit_of_work,
+                    run,
+                    "scan.source_changed",
+                    "The source changed before a discovery batch could be persisted.",
+                    observed_at,
+                )
+                unit_of_work.commit()
+                return _BatchPersistenceResult.SOURCE_CHANGED
             counters = run.counters
             for event in events:
                 if isinstance(event, TraversalIgnored):
@@ -453,7 +479,7 @@ class ScanCoordinator:
                     counters = counters.plus(issues=1)
             unit_of_work.runs.update(replace(run, counters=counters))
             unit_of_work.commit()
-            return False
+            return _BatchPersistenceResult.APPLIED
 
     def _apply_observation(
         self,

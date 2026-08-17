@@ -46,6 +46,33 @@ def test_supported_nested_files_are_normalized_and_returned_in_deterministic_ord
     assert observations[0].modified_time_ns == (root / decomposed).stat().st_mtime_ns
 
 
+def test_traversal_uses_exact_canonical_root_returned_by_access_validation(
+    tmp_path: Path,
+) -> None:
+    canonical_root = tmp_path / "approved" / "inside"
+    canonical_root.mkdir(parents=True)
+    (canonical_root / "video.mkv").write_bytes(b"video")
+
+    class CanonicalAccessGateway:
+        configured_roots: list[str]
+
+        def __init__(self) -> None:
+            self.configured_roots = []
+
+        def resolve_root_for_access(self, configured_root: str) -> Path:
+            self.configured_roots.append(configured_root)
+            return canonical_root
+
+    access_gateway = CanonicalAccessGateway()
+    traversal = LocalFilesystemTraversalGateway(access_gateway, (".mkv",))
+    retargetable_lexical_path = str(tmp_path / "approved" / "source-link")
+
+    observations = _observations(traversal.iterate(retargetable_lexical_path))
+
+    assert access_gateway.configured_roots == [retargetable_lexical_path]
+    assert [item.normalized_relative_locator for item in observations] == ["video.mkv"]
+
+
 def test_hidden_unsupported_built_in_and_configured_entries_are_ignored(
     tmp_path: Path,
 ) -> None:

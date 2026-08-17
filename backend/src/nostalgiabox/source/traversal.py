@@ -5,6 +5,7 @@ import os
 import stat
 from collections.abc import Callable, Iterable
 from pathlib import Path
+from typing import Protocol
 from unicodedata import normalize
 
 from nostalgiabox.application.scans import (
@@ -15,9 +16,15 @@ from nostalgiabox.application.scans import (
 )
 from nostalgiabox.application.sources import InvalidSourceRootError
 from nostalgiabox.domain.scanning import MediaFileObservation
-from nostalgiabox.source.local import LocalFilesystemSourceGateway
 
 MetadataReader = Callable[[Path], os.stat_result]
+
+
+class LocalRootAccessGateway(Protocol):
+    """Provide the exact canonical root already authorized for filesystem access."""
+
+    def resolve_root_for_access(self, configured_root: str) -> Path: ...
+
 
 _BUILT_IN_IGNORED_DIRECTORIES = frozenset(
     value.casefold()
@@ -30,7 +37,7 @@ class LocalFilesystemTraversalGateway:
 
     def __init__(
         self,
-        root_gateway: LocalFilesystemSourceGateway,
+        root_gateway: LocalRootAccessGateway,
         discovery_extensions: Iterable[str],
         ignore_patterns: Iterable[str] = (),
         *,
@@ -50,8 +57,7 @@ class LocalFilesystemTraversalGateway:
     def iterate(self, configured_root: str) -> Iterable[TraversalEvent]:
         """Yield safe relative observations and bounded diagnostic events."""
         try:
-            validated_root = self._root_gateway.validate_root(configured_root)
-            canonical_root = Path(validated_root).resolve(strict=True)
+            canonical_root = self._root_gateway.resolve_root_for_access(configured_root)
             root_metadata = self._metadata_reader(canonical_root)
         except (InvalidSourceRootError, OSError, RuntimeError) as error:
             raise TraversalFailedError(

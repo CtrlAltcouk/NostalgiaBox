@@ -3,7 +3,7 @@
 ## Status
 
 **In progress — 2026-08-10.** Tasks 3.1 and 3.2 are `PASS` for their approved scope. Task 3.3
-development validation passes 348 tests on Windows/Python 3.13 with five honest capability skips;
+development validation passes 355 tests on Windows/Python 3.13 with five honest capability skips;
 its isolated reference-Dell validation remains pending. Task 3.4 has not started, and Phase 3 as a
 whole remains in progress.
 
@@ -35,6 +35,7 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Local availability and diagnostics | Enabled/availability remain independent; permission/invalid/unavailable mapping, recovery clearing and exact UTC check pass | Real mode-`000` permission denial as `nostalgia` returned `PERMISSION_DENIED` | PASS |
 | Initial local scan | Real temporary-tree adapter → one `PRESENT` physical row per eligible file; no logical/playable rows | Dell temporary local folder pending | PARTIAL |
 | Local allowed-root safety | Canonical containment, traversal/sibling-prefix/protected-root rejection, explicit expert allow-list and same-root/escape symlink policy implemented | Dell real symlink, retarget, traversal and permission cases passed | PASS |
+| Task 3.3 canonical traversal handoff | Traversal consumes the exact containment-validated canonical access root without a second lexical-path resolve | Task 3.3 Dell traversal regression pending | PARTIAL |
 | Unchanged incremental scan | Same IDs/signatures, no duplicates, unchanged count and successful-scan advance pass | Dell no-op rescan pending; probe skipping belongs to 3.4 | PARTIAL |
 | File addition | Existing ID retained and one new `PRESENT` physical ID created | Dell generated local fixture pending; NAS later | PARTIAL |
 | File removal | Only successful authoritative scan marks retained row `MISSING`; failed/cancelled/source-changed scans do not | Dell generated local fixture pending | PARTIAL |
@@ -50,7 +51,7 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Source offline before scan | Controlled availability failure, prior files and successful-scan time retained, no traversal/reconciliation | Local fake passes; NAS disconnect belongs later | PARTIAL |
 | NAS authentication/permission failure | Distinct safe categories, secret absent from output | Test account/permissions | PLANNED |
 | NAS reconnect | Same source/file/catalogue IDs restored | Disconnect/reconnect test share | PLANNED |
-| Interrupted scan/recovery | Failed traversal retains committed batches; abandoned queued/running runs become interrupted idempotently; unseen files stay present | Dell focused suite and recovery smoke pending | PARTIAL |
+| Interrupted scan/recovery | Failed traversal retains committed batches; every batch verifies the source snapshot in the same short UoW before observations; changed/disabled/retired sources reject that batch, retain earlier valid batches and skip reconciliation; abandoned queued/running runs become interrupted idempotently | Dell focused suite and recovery smoke pending | PARTIAL |
 | Cancellation | Durable repeated request is safe; committed batch remains; no final missing sweep/success timestamp | Dell focused cancellation case pending; API later | PARTIAL |
 | One active scan per source | Application guard plus SQLite partial unique active-source index; different sources admitted within executor bound | Dell focused constraint/worker proof pending | PARTIAL |
 | Manual correction survives rescan | Override and locked match beat refreshed derived data | Browser correction then rescan | PLANNED |
@@ -538,7 +539,8 @@ print(
 engine.dispose()
 PY
 
-# Focused tests above prove failed/interrupted scans, cancellation after a committed batch,
+# Focused tests above prove failed/interrupted scans, source changes before first/later batches,
+# cancellation after a committed batch, canonical validated-root handoff,
 # one-active-scan DB/application enforcement, abandoned-run recovery and repeated Phase 2 runtime
 # reads from the same disposable DB. The real fixture proves Linux traversal/symlink behavior.
 test ! -e "$ffprobe_marker"

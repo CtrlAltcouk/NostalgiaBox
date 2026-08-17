@@ -320,6 +320,128 @@ def test_source_change_during_scan_interrupts_without_missing_reconciliation(
     assert _source(factory, source.id).last_successful_scan_utc == successful_at
 
 
+def test_root_change_before_first_batch_interrupts_without_persisting_observations(
+    persistence_engine: Engine,
+) -> None:
+    factory = sessionmaker(bind=persistence_engine, autoflush=False, expire_on_commit=False)
+    source = _store_source(factory, configured_root="/approved/root-a")
+    executor = _DeferredExecutor()
+    traversal = _CallbackTraversal(_observation("from-root-a.mkv", 1, 1))
+    coordinator = _coordinator(
+        factory,
+        traversal,
+        _AvailableGateway(),
+        executor,
+        FakeClock(_START),
+        batch_size=1,
+    )
+    queued = coordinator.start_scan(source.id, ScanKind.FULL)
+    traversal.callback = lambda: _change_source(
+        factory,
+        source.id,
+        lambda current: replace(
+            current,
+            configured_root="/approved/root-b",
+            revision=current.revision + 1,
+        ),
+    )
+
+    executor.run_next()
+    interrupted = _run(factory, queued.id)
+
+    assert interrupted.status is ScanStatus.INTERRUPTED
+    assert interrupted.terminal_error_code == "scan.source_changed"
+    assert _files(factory, source.id) == ()
+    assert _source(factory, source.id).last_successful_scan_utc is None
+
+
+def test_source_change_before_second_batch_preserves_only_first_valid_batch(
+    persistence_engine: Engine,
+) -> None:
+    factory = sessionmaker(bind=persistence_engine, autoflush=False, expire_on_commit=False)
+    source = _store_source(factory)
+    clock = FakeClock(_START)
+    seed = _MutableTraversal([_observation("unseen.mkv", 5, 5)])
+    _completed(
+        _coordinator(factory, seed, _AvailableGateway(), _InlineExecutor(), clock),
+        factory,
+        source.id,
+        ScanKind.FULL,
+    )
+    successful_at = _source(factory, source.id).last_successful_scan_utc
+    executor = _DeferredExecutor()
+    traversal = _CallbackTraversal(
+        _observation("first-valid.mkv", 1, 1),
+        _observation("second-stale.mkv", 2, 2),
+    )
+    coordinator = _coordinator(
+        factory,
+        traversal,
+        _AvailableGateway(),
+        executor,
+        clock,
+        batch_size=1,
+    )
+    queued = coordinator.start_scan(source.id, ScanKind.FULL)
+    traversal.callback = lambda: _change_source(
+        factory,
+        source.id,
+        lambda current: replace(current, revision=current.revision + 1),
+    )
+
+    executor.run_next()
+    interrupted = _run(factory, queued.id)
+    files = {item.normalized_relative_locator: item for item in _files(factory, source.id)}
+
+    assert interrupted.status is ScanStatus.INTERRUPTED
+    assert interrupted.terminal_error_code == "scan.source_changed"
+    assert set(files) == {"first-valid.mkv", "unseen.mkv"}
+    assert files["unseen.mkv"].presence is FilePresenceState.PRESENT
+    assert _source(factory, source.id).last_successful_scan_utc == successful_at
+
+
+@pytest.mark.parametrize("change", ["disable", "retire", "revision"])
+def test_source_ineligibility_or_revision_change_before_batch_prevents_observations(
+    persistence_engine: Engine,
+    change: str,
+) -> None:
+    factory = sessionmaker(bind=persistence_engine, autoflush=False, expire_on_commit=False)
+    source = _store_source(factory)
+    executor = _DeferredExecutor()
+    traversal = _CallbackTraversal(_observation("stale.mkv", 1, 1))
+    coordinator = _coordinator(
+        factory,
+        traversal,
+        _AvailableGateway(),
+        executor,
+        FakeClock(_START),
+        batch_size=1,
+    )
+    queued = coordinator.start_scan(source.id, ScanKind.FULL)
+
+    def update(current: MediaSource) -> MediaSource:
+        if change == "disable":
+            return replace(current, enabled=False, revision=current.revision + 1)
+        if change == "retire":
+            return replace(
+                current,
+                enabled=False,
+                retired_utc=_START,
+                revision=current.revision + 1,
+            )
+        return replace(current, revision=current.revision + 1)
+
+    traversal.callback = lambda: _change_source(factory, source.id, update)
+
+    executor.run_next()
+    interrupted = _run(factory, queued.id)
+
+    assert interrupted.status is ScanStatus.INTERRUPTED
+    assert interrupted.terminal_error_code == "scan.source_changed"
+    assert _files(factory, source.id) == ()
+    assert _source(factory, source.id).last_successful_scan_utc is None
+
+
 def test_one_active_scan_application_guard_recovery_and_new_generation(
     persistence_engine: Engine,
 ) -> None:
@@ -610,6 +732,20 @@ def _source(factory: sessionmaker[Session], source_id: MediaSourceId) -> MediaSo
         source = SqlAlchemyMediaSourceRepository(session).get_by_id(source_id)
         assert source is not None
         return source
+
+
+def _change_source(
+    factory: sessionmaker[Session],
+    source_id: MediaSourceId,
+    change: Callable[[MediaSource], MediaSource],
+) -> None:
+    with factory() as session:
+        repository = SqlAlchemyMediaSourceRepository(session)
+        current = repository.get_by_id(source_id)
+        assert current is not None
+        updated = change(current)
+        assert repository.update(updated, current.revision)
+        session.commit()
 
 
 def _files(factory: sessionmaker[Session], source_id: MediaSourceId) -> tuple[MediaFile, ...]:

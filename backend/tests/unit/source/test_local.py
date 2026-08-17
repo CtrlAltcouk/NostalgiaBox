@@ -91,6 +91,7 @@ def test_inside_symlink_is_allowed_but_retarget_escape_fails_next_check(tmp_path
     configured = gateway.validate_root(str(link))
 
     assert configured == str(link.absolute())
+    assert gateway.resolve_root_for_access(configured) == inside.resolve(strict=True)
     assert gateway.check(configured).availability is SourceAvailability.AVAILABLE
 
     link.unlink()

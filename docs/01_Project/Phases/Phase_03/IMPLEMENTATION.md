@@ -169,7 +169,7 @@ Rules for every task:
 #### Task 3.3 implementation evidence
 
 - **Development status:** `PARTIAL` pending reference-Dell validation. Windows/Python 3.13 passes
-  348 tests with five honest platform-capability skips: AF_UNIX, the existing two Task 3.2 symlink
+  355 tests with five honest platform-capability skips: AF_UNIX, the existing two Task 3.2 symlink
   cases, the existing POSIX permission case and one new real traversal-symlink case.
 - **Pure state:** `ScanRunId`, `ScanIssueId`, `ScanKind` (`FULL`/`INCREMENTAL`), `ScanStatus`
   (`QUEUED`, `RUNNING`, `COMPLETED`, `CANCELLED`, `INTERRUPTED`, `FAILED`), counters, transition
@@ -186,19 +186,26 @@ Rules for every task:
   exact Task 3.2 downgrade shape.
 - **Coordinator/transactions:** source validation and run creation, availability/start, bounded
   observation batches, cancellation, final reconciliation and recovery each use short application-
-  owned UoWs. Filesystem iteration occurs only between transactions. A source revision/root
-  snapshot gates the final transaction, which alone marks unseen present files missing, updates
-  `last_successful_scan_utc` and completes the run.
+  owned UoWs. Filesystem iteration occurs only between transactions. Every observation batch
+  re-reads and verifies the source ID, local/enabled/not-retired state, root and revision against
+  the run snapshot in the same short UoW before writing any event. A mismatch interrupts without
+  writing that batch while preserving earlier valid commits. The same snapshot also gates the final
+  transaction, which alone marks unseen present files missing, updates `last_successful_scan_utc`
+  and completes the run. Repositories flush only for constraint translation; the UoW owns commit
+  and rollback.
 - **Safety gates:** unavailable, traversal-failed, cancelled, interrupted or source-changed scans
   never reconcile missing files or update successful-scan time. Committed batches remain valid.
   Changed cheap signatures retain the provisional current ID, update observation facts and create
   `file.changed_observation`; Task 3.5 owns replacement/rename/fingerprint decisions.
-- **Traversal:** the infrastructure adapter reuses Task 3.2 root validation, performs sorted
-  directory-at-a-time depth-first traversal, emits NFC `/`-separated relative locators, never
-  follows file or directory symlinks, stays on the configured root filesystem, skips hidden and
-  documented system/cache directories, applies configurable relative ignore patterns, and treats
-  incomplete directory views as controlled scan failure. Extension matching is case-insensitive
-  against the configurable `.mkv/.mp4/.m4v/.avi/.mov/.webm/.mpg/.mpeg/.ts/.m2ts` allow-list.
+- **Traversal:** the infrastructure adapter reuses Task 3.2 lexical validation while a dedicated
+  access method returns the exact canonical directory whose approved/protected-root containment was
+  validated. Traversal consumes that result directly and does not re-resolve the lexical storage
+  path. It performs sorted directory-at-a-time depth-first traversal, emits NFC `/`-separated
+  relative locators, never follows file or directory symlinks, stays on the configured root
+  filesystem, skips hidden and documented system/cache directories, applies configurable relative
+  ignore patterns, and treats incomplete directory views as controlled scan failure. Extension
+  matching is case-insensitive against the configurable
+  `.mkv/.mp4/.m4v/.avi/.mov/.webm/.mpg/.mpeg/.ts/.m2ts` allow-list.
 - **Full/incremental:** both enumerate the authoritative eligible view in Task 3.3. Incremental
   uses the cheap signature to count unchanged observations; no watcher or artificial semantic
   difference exists. Task 3.4 will consume this state to avoid unnecessary probing.

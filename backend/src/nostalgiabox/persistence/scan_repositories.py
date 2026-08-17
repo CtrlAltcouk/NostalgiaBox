@@ -42,7 +42,6 @@ class SqlAlchemyScanRunRepository:
         try:
             self._session.flush()
         except IntegrityError as error:
-            self._session.rollback()
             raise ScanAlreadyRunningError(
                 f"source {run.source_id.value!r} already has an active scan or generation"
             ) from error

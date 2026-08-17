@@ -62,6 +62,16 @@ class LocalFilesystemSourceGateway:
             ) from error
         return str(lexical_root)
 
+    def resolve_root_for_access(self, configured_root: str) -> Path:
+        """Return the canonical directory whose containment was validated for access."""
+        lexical_root = _lexical_absolute_path(configured_root)
+        try:
+            return self._resolve_allowed_directory(lexical_root)
+        except (_SourcePermissionDeniedError, _SourceUnavailableError) as error:
+            raise InvalidSourceRootError(
+                "configured local source root cannot be inspected"
+            ) from error
+
     def check(self, configured_root: str) -> SourceAvailabilityResult:
         """Re-resolve containment and minimally open the directory on every check."""
         try:

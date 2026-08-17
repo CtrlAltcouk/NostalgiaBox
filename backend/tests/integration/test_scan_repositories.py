@@ -8,6 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from nostalgiabox.application.scans import ScanAlreadyRunningError
 from nostalgiabox.domain import (
     MediaSource,
     MediaSourceId,
@@ -103,6 +104,31 @@ def test_database_enforces_one_active_run_per_source(
 
     with pytest.raises(IntegrityError):
         _insert_run(persistence_session, "run-2", generation=2)
+
+
+def test_repository_translates_active_scan_conflict_without_owning_rollback(
+    persistence_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _store_source(persistence_session)
+    repository = SqlAlchemyScanRunRepository(persistence_session)
+    repository.add(_queued_run("run-1"))
+    original_rollback = persistence_session.rollback
+    rollback_calls = 0
+
+    def track_rollback() -> None:
+        nonlocal rollback_calls
+        rollback_calls += 1
+        original_rollback()
+
+    monkeypatch.setattr(persistence_session, "rollback", track_rollback)
+    conflicting = replace(_queued_run("run-2"), generation=2)
+
+    with pytest.raises(ScanAlreadyRunningError, match="active scan or generation"):
+        repository.add(conflicting)
+
+    assert rollback_calls == 0
+    original_rollback()
 
 
 def test_database_enforces_unique_source_generation(
