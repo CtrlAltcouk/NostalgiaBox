@@ -3,9 +3,9 @@
 ## Status and delivery rules
 
 **Implementation in progress — 2026-08-10.** Tasks 3.1 and 3.2 are accepted for their approved
-scope. Task 3.3 local discovery is implemented in development and remains `PARTIAL` pending the
-documented isolated reference-Dell validation. Task 3.4 and later tasks have not started, and Phase
-3 as a whole is not accepted. Each task requires its own branch, review, tests, migration lifecycle
+scope. Task 3.3 local discovery is accepted for its approved scope following documented isolated
+reference-Dell validation. Task 3.4 and later tasks have not started, and Phase 3 as a whole is not
+accepted. Each task requires its own branch, review, tests, migration lifecycle
 where applicable, documentation and proportionate reference-Dell evidence. Phase 2 tests and
 architecture remain mandatory regression coverage.
 
@@ -161,16 +161,21 @@ Rules for every task:
 - **Automated tests:** initial/unchanged/add/change/remove, hidden/ignored/symlink cases, interrupted
   enumeration, cancellation, source loss, one-scan-per-source, idempotent replay and no premature
   missing reconciliation.
-- **Dell validation:** `PENDING`; exact isolated commands and generated fixture procedure are in
-  `TESTING.md`. No reference-appliance result is claimed yet.
+- **Dell validation:** `PASS` on Debian 13.6/Python 3.13.5 at commit
+  `96c8cdae6476e080b718844fcac919fc0aa845b1`; see the completed isolated reference-Dell evidence
+  in `TESTING.md`.
 - **Risks:** long transactions, event-loop blocking and excessive progress writes.
 - **Exit:** source inventory is restart-safe and deterministic; no probe/matching exists yet.
 
 #### Task 3.3 implementation evidence
 
-- **Development status:** `PARTIAL` pending reference-Dell validation. Windows/Python 3.13 passes
-  355 tests with five honest platform-capability skips: AF_UNIX, the existing two Task 3.2 symlink
-  cases, the existing POSIX permission case and one new real traversal-symlink case.
+- **Acceptance status:** `PASS` for the approved Task 3.3 deterministic local-discovery scope.
+  Windows/Python 3.13 development validation passed 355 tests with five honest platform-capability
+  skips: AF_UNIX, the existing two Task 3.2 symlink cases, the existing POSIX permission case and
+  one new real traversal-symlink case. Isolated reference-Dell validation on Debian 13.6/Python
+  3.13.5 at `96c8cdae6476e080b718844fcac919fc0aa845b1` passed the full suite (360 passed, one
+  warning, zero skips), the focused Task 3.3 suite (86 passed), Ruff lint/format and strict mypy,
+  and the disposable Alembic lifecycle. The fake `ffprobe` marker remained absent.
 - **Pure state:** `ScanRunId`, `ScanIssueId`, `ScanKind` (`FULL`/`INCREMENTAL`), `ScanStatus`
   (`QUEUED`, `RUNNING`, `COMPLETED`, `CANCELLED`, `INTERRUPTED`, `FAILED`), counters, transition
   validation, safe issues and `MediaFileObservation` are infrastructure-free. Cheap identity is
@@ -221,9 +226,19 @@ Rules for every task:
 - **Requirement status:** Task 3.3 implements `P3-SCAN-03`, `05`, `07`, `08` and `09` in automated
   development evidence, plus the discovery/non-probe portions of `01`, `02` and `04`. `P3-SCAN-02`
   remains overall `PARTIAL` pending Task 3.5 rename/replacement/duplicate policy; `04` remains
-  broader `PARTIAL` pending Task 3.4 probe work; `06` remains `PARTIAL` pending reference appliance
-  concurrency/performance evidence. The `P3-SCAN` group and Task 3.3 acceptance remain `PARTIAL`
-  until the documented Dell run.
+  broader `PARTIAL` pending Task 3.4 probe work; `06` remains `PARTIAL` pending reference-appliance
+  concurrency/performance evidence. The `P3-SCAN` group remains `PARTIAL`: this Task 3.3 acceptance
+  does not complete its later probe, identity-policy, performance or product-integration work.
+- **Reference-Dell safety evidence:** a generated temporary local fixture proved stable identity,
+  missing/restoration, filters and symlink exclusion through the real scan lifecycle; focused
+  coverage also proved cancellation, interruption, source-change safety, missing reconciliation and
+  Phase 2/Task 3.1/Task 3.2 regressions. Validation used only disposable databases, a fresh
+  independent temporary clone and the isolated fixture. It did not access the production database or production media,
+  and did not modify MPV/playback, boot/X, autologin or systemd configuration. Two safe procedural
+  deviations were used: a fresh independent temporary clone replaced the linked worktree because
+  `/opt/nostalgiabox` was dirty, and ownership of the dedicated validation root was explicitly
+  corrected because its parent creation left it root-owned. Neither deviation broadened access or
+  changed production state.
 - **Scope:** no ffprobe/probe metadata, fingerprints/hashes, replacement or rename matching,
   duplicates, logical catalogue/rendition/media creation, SMB, API, WebUI, authentication, watcher,
   broker, systemd unit, Phase 4 or Task 3.4 behavior was added.

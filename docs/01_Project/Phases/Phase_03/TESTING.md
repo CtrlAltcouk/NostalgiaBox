@@ -2,10 +2,10 @@
 
 ## Status
 
-**In progress — 2026-08-10.** Tasks 3.1 and 3.2 are `PASS` for their approved scope. Task 3.3
-development validation passes 355 tests on Windows/Python 3.13 with five honest capability skips;
-its isolated reference-Dell validation remains pending. Task 3.4 has not started, and Phase 3 as a
-whole remains in progress.
+**In progress — 2026-08-10.** Tasks 3.1, 3.2 and 3.3 are `PASS` for their approved scopes. Task
+3.3 isolated reference-Dell validation at commit `96c8cdae6476e080b718844fcac919fc0aa845b1` on
+Debian 13.6/Python 3.13.5 passed 360 tests (one warning, zero skips); the focused suite passed 86.
+Task 3.4 has not started, and Phase 3 as a whole remains in progress.
 
 Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 `DEFERRED-BY-APPROVED-SCOPE`.
@@ -33,14 +33,14 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | One present file per source/locator | `PRESENT` partial unique index; `UNCLASSIFIED`/`MISSING` duplicates remain legal; ambiguous legacy rows are not merged | Repeat constraint/migration suite on Dell | PARTIAL |
 | Local source create/read/edit/test/enable/disable | Pure service, unit-of-work/revision conflicts, real temporary-root adapter and exact persistence round trip pass | Dell readable/missing source lifecycle passed as `nostalgia` | PASS |
 | Local availability and diagnostics | Enabled/availability remain independent; permission/invalid/unavailable mapping, recovery clearing and exact UTC check pass | Real mode-`000` permission denial as `nostalgia` returned `PERMISSION_DENIED` | PASS |
-| Initial local scan | Real temporary-tree adapter → one `PRESENT` physical row per eligible file; no logical/playable rows | Dell temporary local folder pending | PARTIAL |
+| Initial local scan | Real temporary-tree adapter → one `PRESENT` physical row per eligible file; no logical/playable rows | Dell generated temporary local folder passed; no logical/playable rows created | PASS |
 | Local allowed-root safety | Canonical containment, traversal/sibling-prefix/protected-root rejection, explicit expert allow-list and same-root/escape symlink policy implemented | Dell real symlink, retarget, traversal and permission cases passed | PASS |
-| Task 3.3 canonical traversal handoff | Traversal consumes the exact containment-validated canonical access root without a second lexical-path resolve | Task 3.3 Dell traversal regression pending | PARTIAL |
-| Unchanged incremental scan | Same IDs/signatures, no duplicates, unchanged count and successful-scan advance pass | Dell no-op rescan pending; probe skipping belongs to 3.4 | PARTIAL |
-| File addition | Existing ID retained and one new `PRESENT` physical ID created | Dell generated local fixture pending; NAS later | PARTIAL |
-| File removal | Only successful authoritative scan marks retained row `MISSING`; failed/cancelled/source-changed scans do not | Dell generated local fixture pending | PARTIAL |
+| Task 3.3 canonical traversal handoff | Traversal consumes the exact containment-validated canonical access root without a second lexical-path resolve | Dell traversal/symlink regression passed | PASS |
+| Unchanged incremental scan | Same IDs/signatures, no duplicates, unchanged count and successful-scan advance pass | Dell no-op rescan passed; probe skipping remains Task 3.4 | PASS |
+| File addition | Existing ID retained and one new `PRESENT` physical ID created | Dell generated local fixture passed; NAS remains later work | PASS |
+| File removal | Only successful authoritative scan marks retained row `MISSING`; failed/cancelled/source-changed scans do not | Dell generated local fixture and safety cases passed | PASS |
 | Rename/move | Unique strong evidence preserves file ID/match/override | Local and same-share rename | PLANNED |
-| Changed observation at same locator | Cheap signature change detected, provisional ID retained and safe issue emitted; no replacement claim | Dell generated change pending; Task 3.5 owns final identity | PARTIAL |
+| Changed observation at same locator | Cheap signature change detected, provisional ID retained and safe issue emitted; no replacement claim | Dell generated change passed; Task 3.5 owns final identity | PASS |
 | Duplicate | Weak candidate stays separate; full confirmation groups without deletion | Copy across source fixtures | PLANNED |
 | Ambiguous fingerprint/collision | No silent merge; attention issue emitted | Not required—synthetic collision | PLANNED |
 | Corrupt file | Probe failure stored/safely displayed | Small operator-owned corrupt fixture | PLANNED |
@@ -51,9 +51,9 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Source offline before scan | Controlled availability failure, prior files and successful-scan time retained, no traversal/reconciliation | Local fake passes; NAS disconnect belongs later | PARTIAL |
 | NAS authentication/permission failure | Distinct safe categories, secret absent from output | Test account/permissions | PLANNED |
 | NAS reconnect | Same source/file/catalogue IDs restored | Disconnect/reconnect test share | PLANNED |
-| Interrupted scan/recovery | Failed traversal retains committed batches; every batch verifies the source snapshot in the same short UoW before observations; changed/disabled/retired sources reject that batch, retain earlier valid batches and skip reconciliation; abandoned queued/running runs become interrupted idempotently | Dell focused suite and recovery smoke pending | PARTIAL |
-| Cancellation | Durable repeated request is safe; committed batch remains; no final missing sweep/success timestamp | Dell focused cancellation case pending; API later | PARTIAL |
-| One active scan per source | Application guard plus SQLite partial unique active-source index; different sources admitted within executor bound | Dell focused constraint/worker proof pending | PARTIAL |
+| Interrupted scan/recovery | Failed traversal retains committed batches; every batch verifies the source snapshot in the same short UoW before observations; changed/disabled/retired sources reject that batch, retain earlier valid batches and skip reconciliation; abandoned queued/running runs become interrupted idempotently | Dell focused interruption/source-change/recovery evidence passed | PASS |
+| Cancellation | Durable repeated request is safe; committed batch remains; no final missing sweep/success timestamp | Dell focused cancellation evidence passed; API remains later | PASS |
+| One active scan per source | Application guard plus SQLite partial unique active-source index; different sources admitted within executor bound | Dell focused constraint/worker proof passed; performance thresholds remain later | PASS |
 | Manual correction survives rescan | Override and locked match beat refreshed derived data | Browser correction then rescan | PLANNED |
 | Clear correction | Latest derived value becomes effective | Browser flow | PLANNED |
 | Concurrent edit | Revision conflict, no lost update | Two browser sessions optional | PLANNED |
@@ -66,7 +66,7 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Playback while scanning | Seeded Phase 2 runtime repeatedly resolves from same disposable DB during bounded scan writes | Dell same-DB runtime proof pending; real MPV concurrency later | PARTIAL |
 | Concurrent WebUI reads | Bounded latency/no lock failures while scan writes | Desktop/phone browse during scan | PLANNED |
 | SQLite busy/retry bounds | Transient busy recovers; persistent busy fails safely | Dell WAL/busy benchmark | PLANNED |
-| Migration lifecycle | Task 3.3 empty/current/repeat/downgrade/re-upgrade and populated Task 3.2 lossless preservation pass; duplicate legacy locators remain `UNCLASSIFIED` | Task 3.2 evidence remains PASS; `20260810_0004` Dell lifecycle pending | PARTIAL |
+| Migration lifecycle | Task 3.3 empty/current/repeat/downgrade/re-upgrade and populated Task 3.2 lossless preservation pass; duplicate legacy locators remain `UNCLASSIFIED` | Disposable Dell lifecycle through `20260810_0004` passed | PASS |
 | Source API | Validation, lifecycle, test, redaction, status codes | Live API smoke | PLANNED |
 | Scan API | 202/job ID, progress/history/issues, conflict/cancel | Live scan polling | PLANNED |
 | Catalogue API | Pagination/search/filter/detail/attention/corrections/ETag | Live browser use | PLANNED |
@@ -307,10 +307,11 @@ timestamps, SMB/NAS and credentials, APIs, WebUI and Task 3.3+ remain `PARTIAL` 
 shown above. That was the Task 3.2 acceptance boundary; Task 3.3 is now implemented in development
 as documented below. Phase 3 remains in progress and Task 3.4 has not started.
 
-### Task 3.3 isolated reference-Dell procedure — pending
+### Task 3.3 isolated reference-Dell evidence — PASS
 
-Run this exact procedure on Debian 13/Python 3.13 from a clean existing repository. It uses only
-`/tmp`, a detached temporary worktree, disposable SQLite databases and the single temporary source
+Validation completed on Debian 13.6/Python 3.13.5 at commit
+`96c8cdae6476e080b718844fcac919fc0aa845b1`. It used only `/tmp`, a fresh independent temporary clone,
+disposable SQLite databases and the single temporary source
 `/srv/nostalgiabox/media/task33-validation`. It must not scan the parent media root, access the
 production database, or modify MPV, playback, boot/X, autologin or systemd configuration.
 
@@ -554,10 +555,19 @@ cd -
 git worktree remove --force /tmp/nostalgiabox-task33
 ```
 
-Record Debian/Python versions; full and focused totals/skips; Ruff/mypy; every Alembic revision;
-real fixture IDs/counters/issues/times; cancellation/recovery/mutual-exclusion/runtime results;
-elapsed time and provisional settings; the absent ffprobe marker; clean Git status; and complete
-cleanup. Do not convert Task 3.3 to `PASS` until this procedure is physically completed.
+Results: full `pytest` **360 passed, one warning, zero skips**; focused Task 3.3 tests **86
+passed**; `ruff check .`, `ruff format --check .` and strict `mypy` **PASS**; and the disposable
+Alembic lifecycle **PASS**. The real fixture proved stable identity, missing/restoration, filters
+and symlink exclusion. Focused evidence covered cancellation, interruption, source-change safety,
+missing reconciliation, and Phase 2/Task 3.1/Task 3.2 regressions. The fake-`ffprobe` marker was
+not created.
+
+The production database and production media were not accessed; MPV/playback, boot/X, autologin
+and systemd configuration were not modified. Two safe deviations from the documented procedure
+were recorded: a fresh independent temporary clone replaced the linked worktree because
+`/opt/nostalgiabox` was dirty, and ownership of the dedicated validation root was explicitly
+corrected because its parent creation left it root-owned. Neither broadened access or altered
+production state.
 
 Use isolated temporary sources, a least-privilege test share/account and operator-owned test media:
 
