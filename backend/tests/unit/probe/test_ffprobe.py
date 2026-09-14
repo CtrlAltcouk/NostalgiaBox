@@ -19,9 +19,9 @@ class FakeRunner:
         self.argvs: list[tuple[str, ...]] = []
 
     def run(
-        self, argv: tuple[str, ...], *, timeout_seconds: float, output_limit: int
+        self, argv: Sequence[str], *, timeout_seconds: float, output_limit: int
     ) -> ProcessResult:
-        self.argvs.append(argv)
+        self.argvs.append(tuple(argv))
         result = self._results.pop(0)
         if isinstance(result, Exception):
             raise result

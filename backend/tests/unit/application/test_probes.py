@@ -1,5 +1,6 @@
 """Probe coordinator isolation and refresh state tests."""
 
+from collections.abc import Callable
 from contextlib import AbstractContextManager
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -64,9 +65,12 @@ class FakeGateway:
     def __init__(self, result: TechnicalMetadata | ProbeFailure, events: list[str]) -> None:
         self.result = result
         self.events = events
+        self.on_inspect: Callable[[str, str], TechnicalMetadata | ProbeFailure] | None = None
 
     def inspect(self, path: str, observation_signature: str) -> TechnicalMetadata | ProbeFailure:
         self.events.append("inspect")
+        if self.on_inspect is not None:
+            return self.on_inspect(path, observation_signature)
         return self.result
 
 
@@ -174,14 +178,12 @@ def test_changed_signature_during_probe_discards_result_without_writing_evidence
     events: list[str] = []
     gateway = FakeGateway(_metadata(observation_signature(media_file)), events)
 
-    def mutate_after_inspection(
-        path: str, signature: str
-    ) -> TechnicalMetadata | ProbeFailure:
+    def mutate_after_inspection(path: str, signature: str) -> TechnicalMetadata | ProbeFailure:
         events.append("inspect")
         repository.files["file-1"] = replace(media_file, modified_time_ns=201)
         return _metadata(signature)
 
-    gateway.inspect = mutate_after_inspection  # type: ignore[method-assign]
+    gateway.on_inspect = mutate_after_inspection
     state = _coordinator(repository, gateway, events).inspect(media_file.id)
 
     assert state is ProbeState.DISCOVERED
