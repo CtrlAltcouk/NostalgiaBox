@@ -92,9 +92,12 @@ def test_probe_migration_preserves_referenced_media_files(
     engine = create_engine(Settings(environment="test", database_url=database_url))
     try:
         with engine.connect() as connection:
-            assert connection.execute(
-                text("SELECT probe_state FROM media_files WHERE id = 'file-1'")
-            ).scalar_one() == "discovered"
+            assert (
+                connection.execute(
+                    text("SELECT probe_state FROM media_files WHERE id = 'file-1'")
+                ).scalar_one()
+                == "discovered"
+            )
     finally:
         engine.dispose()
 
