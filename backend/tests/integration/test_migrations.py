@@ -52,6 +52,63 @@ def test_initial_migration_upgrade_repeat_downgrade_and_reupgrade(
     assert _table_names(database_url) == _TABLES
 
 
+def test_probe_migration_preserves_referenced_media_files(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """SQLite upgrades must not rebuild media_files after prior FKs exist."""
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'probe-migration-references.db'}"
+    monkeypatch.setenv("NOSTALGIABOX_DATABASE_URL", database_url)
+    config = Config(str(_BACKEND_ROOT / "alembic.ini"))
+    command.upgrade(config, "20260810_0004")
+
+    engine = create_engine(Settings(environment="test", database_url=database_url))
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text("INSERT INTO media_items VALUES ('item-1', 'Item', 1, '/item.mkv')")
+            )
+            connection.execute(text("INSERT INTO catalogue_items VALUES ('item-1')"))
+            connection.execute(
+                text("INSERT INTO media_sources (id, kind) VALUES ('source-1', 'local')")
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO media_files "
+                    "(id, source_id, normalized_relative_locator, original_relative_locator) "
+                    "VALUES ('file-1', 'source-1', 'item.mkv', 'item.mkv')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO playable_renditions "
+                    "VALUES ('rendition-1', 'item-1', 'file-1', 0, 1, 1, 0, 0)"
+                )
+            )
+    finally:
+        engine.dispose()
+
+    command.upgrade(config, "head")
+    engine = create_engine(Settings(environment="test", database_url=database_url))
+    try:
+        with engine.connect() as connection:
+            assert connection.execute(
+                text("SELECT probe_state FROM media_files WHERE id = 'file-1'")
+            ).scalar_one() == "discovered"
+    finally:
+        engine.dispose()
+
+    command.downgrade(config, "20260810_0004")
+    engine = create_engine(Settings(environment="test", database_url=database_url))
+    try:
+        assert "probe_state" not in {
+            column["name"] for column in inspect(engine).get_columns("media_files")
+        }
+    finally:
+        engine.dispose()
+    command.upgrade(config, "head")
+
+
 def _table_names(database_url: str) -> set[str]:
     engine = create_engine(Settings(environment="test", database_url=database_url))
     try:
