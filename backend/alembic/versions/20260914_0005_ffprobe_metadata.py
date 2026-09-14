@@ -23,7 +23,9 @@ def upgrade() -> None:
         "media_files",
         sa.Column("probe_state", sa.String(), nullable=False, server_default="discovered"),
     )
-    op.add_column("media_files", sa.Column("probe_observation_signature", sa.String(), nullable=True))
+    op.add_column(
+        "media_files", sa.Column("probe_observation_signature", sa.String(), nullable=True)
+    )
     op.add_column("media_files", sa.Column("probe_capability_version", sa.String(), nullable=True))
     op.create_table(
         "probe_attempts",
