@@ -9,7 +9,6 @@ from nostalgiabox.probe.ffprobe import (
     FfprobeAdapter,
     ProbeRunnerError,
     ProcessResult,
-    SubprocessRunner,
 )
 
 

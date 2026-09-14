@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import selectors
@@ -121,10 +122,8 @@ class SubprocessRunner:
     @staticmethod
     def _kill_and_reap(process: subprocess.Popen[bytes]) -> None:
         if process.poll() is None:
-            try:
+            with contextlib.suppress(ProcessLookupError):
                 os.killpg(process.pid, signal.SIGKILL)
-            except ProcessLookupError:
-                pass
         process.communicate()
 
 

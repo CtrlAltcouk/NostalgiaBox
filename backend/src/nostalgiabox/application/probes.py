@@ -108,7 +108,7 @@ class ProbeCoordinator:
                 ProbeFailureCode.EXECUTION_FAILED,
                 "Technical inspection could not be completed.",
             )
-        if not isinstance(result, (TechnicalMetadata, ProbeFailure)):
+        if not isinstance(result, TechnicalMetadata | ProbeFailure):
             result = ProbeFailure(
                 ProbeFailureCode.INVALID_METADATA,
                 "Technical inspection returned an invalid result.",
