@@ -20,6 +20,8 @@ _TABLES = {
     "media_items",
     "media_sources",
     "playable_renditions",
+    "probe_attempts",
+    "probe_observations",
     "scan_issues",
     "scan_runs",
     "timeline_entries",
@@ -37,10 +39,11 @@ def test_initial_migration_upgrade_repeat_downgrade_and_reupgrade(
     command.upgrade(config, "head")
     command.upgrade(config, "head")
     assert _table_names(database_url) == _TABLES
-    assert _current_revision(database_url) == "20260810_0004"
+    assert _current_revision(database_url) == "20260914_0005"
     _assert_catalogue_foundation_schema(database_url)
     _assert_source_lifecycle_schema(database_url)
     _assert_scan_discovery_schema(database_url)
+    _assert_probe_evidence_schema(database_url)
 
     command.downgrade(config, "base")
     assert _table_names(database_url) == {"alembic_version"}
@@ -164,5 +167,41 @@ def _assert_scan_discovery_schema(database_url: str) -> None:
         assert "uq_scan_issues_run_key" in {
             constraint["name"] for constraint in inspector.get_unique_constraints("scan_issues")
         }
+    finally:
+        engine.dispose()
+
+
+def _assert_probe_evidence_schema(database_url: str) -> None:
+    engine = create_engine(Settings(environment="test", database_url=database_url))
+    try:
+        inspector = inspect(engine)
+        file_columns = {column["name"] for column in inspector.get_columns("media_files")}
+        assert {
+            "probe_state",
+            "probe_observation_signature",
+            "probe_capability_version",
+        }.issubset(file_columns)
+        attempt_indexes = {index["name"] for index in inspector.get_indexes("probe_attempts")}
+        observation_indexes = {
+            index["name"] for index in inspector.get_indexes("probe_observations")
+        }
+        assert "ix_probe_attempts_file_attempted" in attempt_indexes
+        assert "ix_probe_observations_file_signature_capability" in observation_indexes
+        with engine.connect() as connection:
+            attempt_sql = connection.scalar(
+                text(
+                    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'probe_attempts'"
+                )
+            )
+            observation_sql = connection.scalar(
+                text(
+                    "SELECT sql FROM sqlite_master WHERE type = 'table' "
+                    "AND name = 'probe_observations'"
+                )
+            )
+        assert attempt_sql is not None
+        assert observation_sql is not None
+        assert "ck_probe_attempts_failure_pair" in attempt_sql
+        assert "ck_probe_observations_duration_nonnegative" in observation_sql
     finally:
         engine.dispose()

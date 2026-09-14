@@ -22,6 +22,8 @@ __all__ = [
     "MediaItemRecord",
     "MediaSourceRecord",
     "PlayableRenditionRecord",
+    "ProbeAttemptRecord",
+    "ProbeObservationRecord",
     "ScanIssueRecord",
     "ScanRunRecord",
     "TimelineEntryRecord",
@@ -134,6 +136,18 @@ class MediaFileRecord(Base):
             "(presence = 'missing') = (missing_since_utc_us IS NOT NULL)",
             name="ck_media_files_missing_timestamp",
         ),
+        CheckConstraint(
+            "probe_state IN ('discovered', 'inspected', 'compatible_candidate', "
+            "'unsupported', 'inspection_failed')",
+            name="ck_media_files_probe_state",
+        ),
+        CheckConstraint(
+            "(probe_state = 'discovered' AND probe_observation_signature IS NULL "
+            "AND probe_capability_version IS NULL) OR (probe_state != 'discovered' "
+            "AND length(trim(probe_observation_signature)) > 0 "
+            "AND length(trim(probe_capability_version)) > 0)",
+            name="ck_media_files_probe_evidence",
+        ),
         Index(
             "ix_media_files_source_locator",
             "source_id",
@@ -165,6 +179,9 @@ class MediaFileRecord(Base):
     first_observed_utc_us: Mapped[int | None] = mapped_column(Integer, nullable=True)
     last_observed_utc_us: Mapped[int | None] = mapped_column(Integer, nullable=True)
     missing_since_utc_us: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    probe_state: Mapped[str] = mapped_column(String, nullable=False, default="discovered")
+    probe_observation_signature: Mapped[str | None] = mapped_column(String, nullable=True)
+    probe_capability_version: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class ScanRunRecord(Base):
@@ -384,3 +401,80 @@ class TimelineEntryRecord(Base):
     content_kind: Mapped[str] = mapped_column(String, nullable=False)
     start_utc_us: Mapped[int] = mapped_column(Integer, nullable=False)
     end_utc_us: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class ProbeAttemptRecord(Base):
+    """Immutable probe attempt; failed refreshes are durable evidence."""
+
+    __tablename__ = "probe_attempts"
+    __table_args__ = (
+        CheckConstraint("length(trim(id)) > 0", name="ck_probe_attempts_id_nonblank"),
+        CheckConstraint(
+            "length(trim(observation_signature)) > 0",
+            name="ck_probe_attempts_signature_nonblank",
+        ),
+        CheckConstraint(
+            "length(trim(capability_version)) > 0",
+            name="ck_probe_attempts_capability_nonblank",
+        ),
+        CheckConstraint(
+            "state IN ('compatible_candidate', 'unsupported', 'inspection_failed')",
+            name="ck_probe_attempts_state",
+        ),
+        CheckConstraint(
+            "(state = 'inspection_failed') = (failure_code IS NOT NULL)",
+            name="ck_probe_attempts_failure_code",
+        ),
+        CheckConstraint(
+            "(failure_code IS NULL) = (failure_message IS NULL)",
+            name="ck_probe_attempts_failure_pair",
+        ),
+        Index("ix_probe_attempts_file_attempted", "media_file_id", "attempted_utc_us"),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    media_file_id: Mapped[str] = mapped_column(
+        ForeignKey("media_files.id", ondelete="RESTRICT"), nullable=False
+    )
+    observation_signature: Mapped[str] = mapped_column(String, nullable=False)
+    capability_version: Mapped[str] = mapped_column(String, nullable=False)
+    state: Mapped[str] = mapped_column(String, nullable=False)
+    attempted_utc_us: Mapped[int] = mapped_column(Integer, nullable=False)
+    failure_code: Mapped[str | None] = mapped_column(String, nullable=True)
+    failure_message: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
+class ProbeObservationRecord(Base):
+    """Immutable parsed facts, keyed by source observation and policy version."""
+
+    __tablename__ = "probe_observations"
+    __table_args__ = (
+        CheckConstraint("length(trim(id)) > 0", name="ck_probe_observations_id_nonblank"),
+        CheckConstraint(
+            "length(trim(observation_signature)) > 0",
+            name="ck_probe_observations_signature_nonblank",
+        ),
+        CheckConstraint(
+            "length(trim(capability_version)) > 0",
+            name="ck_probe_observations_capability_nonblank",
+        ),
+        CheckConstraint("duration_us >= 0", name="ck_probe_observations_duration_nonnegative"),
+        Index(
+            "ix_probe_observations_file_signature_capability",
+            "media_file_id",
+            "observation_signature",
+            "capability_version",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    media_file_id: Mapped[str] = mapped_column(
+        ForeignKey("media_files.id", ondelete="RESTRICT"), nullable=False
+    )
+    observation_signature: Mapped[str] = mapped_column(String, nullable=False)
+    capability_version: Mapped[str] = mapped_column(String, nullable=False)
+    duration_us: Mapped[int] = mapped_column(Integer, nullable=False)
+    containers_json: Mapped[str] = mapped_column(String, nullable=False)
+    streams_json: Mapped[str] = mapped_column(String, nullable=False)
+    compatible_candidate: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    inspected_utc_us: Mapped[int] = mapped_column(Integer, nullable=False)

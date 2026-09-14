@@ -14,6 +14,7 @@ from nostalgiabox.domain.catalogue import (
     MediaSourceKind,
     PlayableRendition,
     PlayableRenditionId,
+    ProbeState,
     SourceAvailability,
 )
 from nostalgiabox.domain.exceptions import TimelineDomainError
@@ -109,6 +110,9 @@ def media_file_to_record(media_file: MediaFile) -> MediaFileRecord:
         first_observed_utc_us=_optional_datetime_to_microseconds(media_file.first_observed_utc),
         last_observed_utc_us=_optional_datetime_to_microseconds(media_file.last_observed_utc),
         missing_since_utc_us=_optional_datetime_to_microseconds(media_file.missing_since_utc),
+        probe_state=media_file.probe_state.value,
+        probe_observation_signature=media_file.probe_observation_signature,
+        probe_capability_version=media_file.probe_capability_version,
     )
 
 
@@ -128,6 +132,9 @@ def media_file_from_record(record: MediaFileRecord) -> MediaFile:
             first_observed_utc=_optional_microseconds_to_datetime(record.first_observed_utc_us),
             last_observed_utc=_optional_microseconds_to_datetime(record.last_observed_utc_us),
             missing_since_utc=_optional_microseconds_to_datetime(record.missing_since_utc_us),
+            probe_state=ProbeState(record.probe_state),
+            probe_observation_signature=record.probe_observation_signature,
+            probe_capability_version=record.probe_capability_version,
         )
     except (CatalogueDomainError, TimelineDomainError, ValueError, OverflowError) as error:
         raise PersistenceConversionError(f"media file {record.id!r} is invalid") from error

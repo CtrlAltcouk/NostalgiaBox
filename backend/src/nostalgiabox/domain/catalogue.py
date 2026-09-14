@@ -104,6 +104,16 @@ class FilePresenceState(StrEnum):
     MISSING = "missing"
 
 
+class ProbeState(StrEnum):
+    """Technical-inspection state; this never asserts actual player success."""
+
+    DISCOVERED = "discovered"
+    INSPECTED = "inspected"
+    COMPATIBLE_CANDIDATE = "compatible_candidate"
+    UNSUPPORTED = "unsupported"
+    INSPECTION_FAILED = "inspection_failed"
+
+
 @dataclass(frozen=True, slots=True)
 class CatalogueItem:
     """A stable logical programme identity that may not yet be playable."""
@@ -176,6 +186,9 @@ class MediaFile:
     first_observed_utc: datetime | None = None
     last_observed_utc: datetime | None = None
     missing_since_utc: datetime | None = None
+    probe_state: ProbeState = ProbeState.DISCOVERED
+    probe_observation_signature: str | None = None
+    probe_capability_version: str | None = None
 
     def __post_init__(self) -> None:
         _require_relative_locator(self.normalized_relative_locator, normalized=True)
@@ -196,6 +209,16 @@ class MediaFile:
                     "unclassified media file must not contain fabricated scanner observations"
                 )
             return
+        if self.probe_state is ProbeState.DISCOVERED and any(
+            value is not None
+            for value in (self.probe_observation_signature, self.probe_capability_version)
+        ):
+            raise InvalidMediaFileError("discovered media file must not claim a probe result")
+        if self.probe_state is not ProbeState.DISCOVERED and any(
+            value is None or not value.strip()
+            for value in (self.probe_observation_signature, self.probe_capability_version)
+        ):
+            raise InvalidMediaFileError("probe result requires signature and capability version")
         if any(value is None for value in observation_values):
             raise InvalidMediaFileError(
                 "classified media file requires a complete cheap observation"

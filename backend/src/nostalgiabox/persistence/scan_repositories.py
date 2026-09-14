@@ -153,6 +153,9 @@ class SqlAlchemyMediaInventoryRepository:
             "first_observed_utc_us",
             "last_observed_utc_us",
             "missing_since_utc_us",
+            "probe_state",
+            "probe_observation_signature",
+            "probe_capability_version",
         ):
             setattr(record, name, getattr(encoded, name))
 

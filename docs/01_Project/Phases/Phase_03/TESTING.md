@@ -591,3 +591,5 @@ Closure requires a requirement-to-evidence traceability audit, all unapproved `P
 items resolved or reported as blockers, full backend/frontend quality suites, clean migrations,
 reference Dell/NAS/browser evidence, security/artifact audit, documented performance measurements,
 and confirmation that no Phase 4 scheduling or Phase 5 TV UI behavior was introduced.
+
+| Task 3.4 ffprobe domain/parser/coordinator/persistence | Unit parser and fake-runner coverage plus disposable migration lifecycle are present on the Task 3.4 branch; host validation blocked by missing Python 3.13 toolchain/dependencies | Isolated Dell validation pending after review | PARTIAL |

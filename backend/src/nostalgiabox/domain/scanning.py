@@ -1,5 +1,6 @@
 """Pure durable scan-run and filesystem-observation values."""
 
+import json
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -208,6 +209,15 @@ class MediaFileObservation:
     @property
     def cheap_signature(self) -> tuple[str, int, int]:
         return (self.normalized_relative_locator, self.size_bytes, self.modified_time_ns)
+
+
+def encode_cheap_signature(signature: tuple[str, int, int]) -> str:
+    """Encode the exact Task 3.3 signature without delimiter ambiguity.
+
+    Device and inode are advisory discovery hints, not probe invalidation
+    evidence. This stored form remains based solely on locator, size and mtime.
+    """
+    return json.dumps(signature, ensure_ascii=False, separators=(",", ":"))
 
 
 @dataclass(frozen=True, slots=True)
