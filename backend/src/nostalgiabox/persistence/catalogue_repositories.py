@@ -101,9 +101,22 @@ class SqlAlchemyMediaFileRepository:
         if record is None:
             self._session.add(media_file_to_record(media_file))
         else:
-            record.source_id = media_file.source_id.value
-            record.normalized_relative_locator = media_file.normalized_relative_locator
-            record.original_relative_locator = media_file.original_relative_locator
+            encoded = media_file_to_record(media_file)
+            for name in (
+                "source_id",
+                "normalized_relative_locator",
+                "original_relative_locator",
+                "presence",
+                "size_bytes",
+                "modified_time_ns",
+                "device_id",
+                "inode_id",
+                "last_seen_generation",
+                "first_observed_utc_us",
+                "last_observed_utc_us",
+                "missing_since_utc_us",
+            ):
+                setattr(record, name, getattr(encoded, name))
 
     def get_by_id(self, media_file_id: MediaFileId) -> MediaFile | None:
         record = self._session.get(MediaFileRecord, media_file_id.value)

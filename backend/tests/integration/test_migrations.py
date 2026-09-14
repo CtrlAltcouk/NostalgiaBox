@@ -20,6 +20,8 @@ _TABLES = {
     "media_items",
     "media_sources",
     "playable_renditions",
+    "scan_issues",
+    "scan_runs",
     "timeline_entries",
 }
 
@@ -35,9 +37,10 @@ def test_initial_migration_upgrade_repeat_downgrade_and_reupgrade(
     command.upgrade(config, "head")
     command.upgrade(config, "head")
     assert _table_names(database_url) == _TABLES
-    assert _current_revision(database_url) == "20260810_0003"
+    assert _current_revision(database_url) == "20260810_0004"
     _assert_catalogue_foundation_schema(database_url)
     _assert_source_lifecycle_schema(database_url)
+    _assert_scan_discovery_schema(database_url)
 
     command.downgrade(config, "base")
     assert _table_names(database_url) == {"alembic_version"}
@@ -78,11 +81,13 @@ def _assert_catalogue_foundation_schema(database_url: str) -> None:
         assert inspector.get_unique_constraints("media_files") == []
         assert {
             constraint["name"] for constraint in inspector.get_check_constraints("media_files")
-        } == {
-            "ck_media_files_id_nonblank",
-            "ck_media_files_normalized_locator_nonblank",
-            "ck_media_files_original_locator_nonblank",
-        }
+        }.issuperset(
+            {
+                "ck_media_files_id_nonblank",
+                "ck_media_files_normalized_locator_nonblank",
+                "ck_media_files_original_locator_nonblank",
+            }
+        )
         assert "ck_renditions_id_nonblank" in {
             constraint["name"]
             for constraint in inspector.get_check_constraints("playable_renditions")
@@ -129,5 +134,35 @@ def _assert_source_lifecycle_schema(database_url: str) -> None:
             "ck_media_sources_revision_positive",
         }:
             assert constraint_name in table_sql
+    finally:
+        engine.dispose()
+
+
+def _assert_scan_discovery_schema(database_url: str) -> None:
+    engine = create_engine(Settings(environment="test", database_url=database_url))
+    try:
+        inspector = inspect(engine)
+        file_columns = {column["name"] for column in inspector.get_columns("media_files")}
+        assert {
+            "presence",
+            "size_bytes",
+            "modified_time_ns",
+            "device_id",
+            "inode_id",
+            "last_seen_generation",
+            "first_observed_utc_us",
+            "last_observed_utc_us",
+            "missing_since_utc_us",
+        }.issubset(file_columns)
+        file_indexes = {index["name"]: index for index in inspector.get_indexes("media_files")}
+        assert file_indexes["uq_media_files_present_source_locator"]["unique"] == 1
+        run_indexes = {index["name"]: index for index in inspector.get_indexes("scan_runs")}
+        assert run_indexes["uq_scan_runs_active_source"]["unique"] == 1
+        assert "uq_scan_runs_source_generation" in {
+            constraint["name"] for constraint in inspector.get_unique_constraints("scan_runs")
+        }
+        assert "uq_scan_issues_run_key" in {
+            constraint["name"] for constraint in inspector.get_unique_constraints("scan_issues")
+        }
     finally:
         engine.dispose()

@@ -1,11 +1,12 @@
 """Pure catalogue identity, locator and playable-range invariants."""
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
 from nostalgiabox.domain.catalogue import (
     CatalogueItemId,
+    FilePresenceState,
     InvalidMediaFileError,
     InvalidPlayableRenditionError,
     MediaFile,
@@ -121,6 +122,56 @@ def test_catalogue_item_can_have_only_one_preferred_rendition() -> None:
 
     with pytest.raises(PreferredRenditionConflictError, match="preferred"):
         validate_rendition_set(renditions)
+
+
+def test_legacy_media_file_remains_unclassified_without_fabricated_observation() -> None:
+    media_file = _media_file("video.mkv", "video.mkv")
+
+    assert media_file.presence is FilePresenceState.UNCLASSIFIED
+    assert media_file.size_bytes is None
+    assert media_file.last_seen_generation is None
+
+
+def test_present_and_missing_media_file_presence_invariants() -> None:
+    observed_at = datetime(2026, 8, 10, 12, tzinfo=UTC)
+    present = MediaFile(
+        id=MediaFileId("file-1"),
+        source_id=MediaSourceId("source-1"),
+        normalized_relative_locator="video.mkv",
+        original_relative_locator="video.mkv",
+        presence=FilePresenceState.PRESENT,
+        size_bytes=10,
+        modified_time_ns=20,
+        last_seen_generation=1,
+        first_observed_utc=observed_at,
+        last_observed_utc=observed_at,
+    )
+    assert present.missing_since_utc is None
+
+    with pytest.raises(InvalidMediaFileError, match="missing timestamp"):
+        MediaFile(
+            id=present.id,
+            source_id=present.source_id,
+            normalized_relative_locator=present.normalized_relative_locator,
+            original_relative_locator=present.original_relative_locator,
+            presence=FilePresenceState.MISSING,
+            size_bytes=present.size_bytes,
+            modified_time_ns=present.modified_time_ns,
+            last_seen_generation=present.last_seen_generation,
+            first_observed_utc=present.first_observed_utc,
+            last_observed_utc=present.last_observed_utc,
+        )
+
+
+def test_unclassified_media_file_rejects_scanner_facts() -> None:
+    with pytest.raises(InvalidMediaFileError, match="fabricated"):
+        MediaFile(
+            id=MediaFileId("file-1"),
+            source_id=MediaSourceId("source-1"),
+            normalized_relative_locator="video.mkv",
+            original_relative_locator="video.mkv",
+            size_bytes=1,
+        )
 
 
 def _media_file(normalized: str, original: str) -> MediaFile:

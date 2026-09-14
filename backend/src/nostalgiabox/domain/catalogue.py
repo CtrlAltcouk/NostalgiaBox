@@ -96,6 +96,14 @@ class SourceAvailability(StrEnum):
     ERROR = "error"
 
 
+class FilePresenceState(StrEnum):
+    """Scanner classification without implying physical deletion or retirement."""
+
+    UNCLASSIFIED = "unclassified"
+    PRESENT = "present"
+    MISSING = "missing"
+
+
 @dataclass(frozen=True, slots=True)
 class CatalogueItem:
     """A stable logical programme identity that may not yet be playable."""
@@ -159,10 +167,64 @@ class MediaFile:
     source_id: MediaSourceId
     normalized_relative_locator: str
     original_relative_locator: str
+    presence: FilePresenceState = FilePresenceState.UNCLASSIFIED
+    size_bytes: int | None = None
+    modified_time_ns: int | None = None
+    device_id: int | None = None
+    inode_id: int | None = None
+    last_seen_generation: int | None = None
+    first_observed_utc: datetime | None = None
+    last_observed_utc: datetime | None = None
+    missing_since_utc: datetime | None = None
 
     def __post_init__(self) -> None:
         _require_relative_locator(self.normalized_relative_locator, normalized=True)
         _require_relative_locator(self.original_relative_locator, normalized=False)
+        observation_values = (
+            self.size_bytes,
+            self.modified_time_ns,
+            self.last_seen_generation,
+            self.first_observed_utc,
+            self.last_observed_utc,
+        )
+        if self.presence is FilePresenceState.UNCLASSIFIED:
+            if any(value is not None for value in observation_values) or any(
+                value is not None
+                for value in (self.device_id, self.inode_id, self.missing_since_utc)
+            ):
+                raise InvalidMediaFileError(
+                    "unclassified media file must not contain fabricated scanner observations"
+                )
+            return
+        if any(value is None for value in observation_values):
+            raise InvalidMediaFileError(
+                "classified media file requires a complete cheap observation"
+            )
+        if self.size_bytes is not None and self.size_bytes < 0:
+            raise InvalidMediaFileError("media-file size must not be negative")
+        if self.last_seen_generation is not None and self.last_seen_generation < 1:
+            raise InvalidMediaFileError("media-file seen generation must be positive")
+        for name, value in (
+            ("first observed", self.first_observed_utc),
+            ("last observed", self.last_observed_utc),
+            ("missing since", self.missing_since_utc),
+        ):
+            if value is not None and (
+                value.utcoffset() is None or value.utcoffset() != timedelta()
+            ):
+                raise InvalidMediaFileError(f"media-file {name} timestamp must be aware UTC")
+        if (
+            self.first_observed_utc is not None
+            and self.last_observed_utc is not None
+            and self.last_observed_utc < self.first_observed_utc
+        ):
+            raise InvalidMediaFileError(
+                "media-file last observation must not precede first observation"
+            )
+        if self.presence is FilePresenceState.PRESENT and self.missing_since_utc is not None:
+            raise InvalidMediaFileError("present media file must not have a missing timestamp")
+        if self.presence is FilePresenceState.MISSING and self.missing_since_utc is None:
+            raise InvalidMediaFileError("missing media file requires a missing timestamp")
 
 
 @dataclass(frozen=True, slots=True)

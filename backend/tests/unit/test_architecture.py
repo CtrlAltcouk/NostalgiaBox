@@ -74,6 +74,43 @@ def test_task32_source_lifecycle_keeps_filesystem_and_policy_boundaries_directed
     assert "os.scandir" in local_adapter
 
 
+def test_task33_scanner_keeps_domain_application_persistence_and_infrastructure_directed() -> None:
+    domain_source = (_PACKAGE_ROOT / "domain" / "scanning.py").read_text(encoding="utf-8")
+    application_source = (_PACKAGE_ROOT / "application" / "scans.py").read_text(encoding="utf-8")
+    persistence_source = "\n".join(
+        path.read_text(encoding="utf-8")
+        for path in (
+            _PACKAGE_ROOT / "persistence" / "scan_mappers.py",
+            _PACKAGE_ROOT / "persistence" / "scan_repositories.py",
+            _PACKAGE_ROOT / "persistence" / "scan_uow.py",
+        )
+    )
+    traversal_source = (_PACKAGE_ROOT / "source" / "traversal.py").read_text(encoding="utf-8")
+    executor_source = (_PACKAGE_ROOT / "source" / "executor.py").read_text(encoding="utf-8")
+
+    for source in (domain_source, application_source):
+        for marker in (
+            "fastapi",
+            "sqlalchemy",
+            "alembic",
+            "concurrent.futures",
+            "ffprobe",
+            "subprocess",
+            "nostalgiabox.playback",
+            "evdev",
+            "react",
+        ):
+            assert marker not in source.lower()
+    for marker in ("os.scandir", "path.iterdir", "os.walk", "rglob(", "pathlib"):
+        assert marker not in application_source.lower()
+    for marker in ("os.scandir", "approved_roots", "ignore_patterns", "fnmatch"):
+        assert marker not in persistence_source.lower()
+    assert "os.scandir" in traversal_source
+    assert "concurrent.futures" in executor_source
+    for marker in ("ffprobe", "fingerprint", "catalogueitem(", "playablerendition("):
+        assert marker not in (application_source + traversal_source).lower()
+
+
 def test_phase2_timeline_and_runtime_do_not_depend_on_catalogue_infrastructure() -> None:
     phase2_files = [
         _PACKAGE_ROOT / "domain" / "timeline.py",
