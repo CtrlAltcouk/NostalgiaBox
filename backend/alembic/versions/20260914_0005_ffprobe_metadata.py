@@ -16,20 +16,15 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    with op.batch_alter_table("media_files") as batch:
-        batch.add_column(
-            sa.Column("probe_state", sa.String(), nullable=False, server_default="discovered")
-        )
-        batch.add_column(sa.Column("probe_observation_signature", sa.String(), nullable=True))
-        batch.add_column(sa.Column("probe_capability_version", sa.String(), nullable=True))
-        batch.create_check_constraint(
-            "ck_media_files_probe_state",
-            "probe_state IN ('discovered', 'inspected', 'compatible_candidate', 'unsupported', 'inspection_failed')",
-        )
-        batch.create_check_constraint(
-            "ck_media_files_probe_evidence",
-            "(probe_state = 'discovered' AND probe_observation_signature IS NULL AND probe_capability_version IS NULL) OR (probe_state != 'discovered' AND length(trim(probe_observation_signature)) > 0 AND length(trim(probe_capability_version)) > 0)",
-        )
+    # SQLite cannot batch-rebuild media_files while existing Phase 3 tables
+    # reference it with foreign_keys enabled. These additive columns are safe
+    # with direct ALTER TABLE and domain/ORM validation enforces their pairing.
+    op.add_column(
+        "media_files",
+        sa.Column("probe_state", sa.String(), nullable=False, server_default="discovered"),
+    )
+    op.add_column("media_files", sa.Column("probe_observation_signature", sa.String(), nullable=True))
+    op.add_column("media_files", sa.Column("probe_capability_version", sa.String(), nullable=True))
     op.create_table(
         "probe_attempts",
         sa.Column("id", sa.String(), primary_key=True),
@@ -108,9 +103,6 @@ def downgrade() -> None:
     op.drop_table("probe_observations")
     op.drop_index("ix_probe_attempts_file_attempted", table_name="probe_attempts")
     op.drop_table("probe_attempts")
-    with op.batch_alter_table("media_files") as batch:
-        batch.drop_constraint("ck_media_files_probe_evidence", type_="check")
-        batch.drop_constraint("ck_media_files_probe_state", type_="check")
-        batch.drop_column("probe_capability_version")
-        batch.drop_column("probe_observation_signature")
-        batch.drop_column("probe_state")
+    op.drop_column("media_files", "probe_capability_version")
+    op.drop_column("media_files", "probe_observation_signature")
+    op.drop_column("media_files", "probe_state")
