@@ -152,6 +152,9 @@ def test_media_file_scanner_columns_add_only_observation_and_presence_state(
         "first_observed_utc_us",
         "last_observed_utc_us",
         "missing_since_utc_us",
+        "probe_state",
+        "probe_observation_signature",
+        "probe_capability_version",
     }
     assert not any(
         marker in column
