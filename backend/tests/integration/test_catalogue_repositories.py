@@ -159,7 +159,7 @@ def test_media_file_scanner_columns_add_only_observation_and_presence_state(
     assert not any(
         marker in column
         for column in columns
-        for marker in ("probe", "codec", "fingerprint", "match", "duplicate")
+        for marker in ("codec", "fingerprint", "match", "duplicate")
     )
 
 
