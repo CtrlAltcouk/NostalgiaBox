@@ -588,30 +588,31 @@ Use isolated temporary sources, a least-privilege test share/account and operato
 Do not repeat Phase 2 hardware scenarios unless the Phase 3 change can affect them; reuse accepted
 display/audio/input evidence and focus on catalogue concurrency and source-path continuity.
 
-### Task 3.4 isolated reference-Dell evidence — PASS for `0a8a7f0`; current tip pending
+### Task 3.4 isolated reference-Dell evidence — PASS for `31eba26`
 
-Validation used commit `0a8a7f0` from an independent temporary clone, a disposable Python 3.13
+Validation used commit `31eba26aa4e037d306f9680ab715e3e5b42e4d86` from an independent temporary clone, a disposable Python 3.13
 virtual environment, generated media and disposable SQLite databases. The live production checkout
 `/opt/nostalgiabox`, production database/media, MPV/X/autologin/boot/systemd configuration and
 appliance runtime were not modified.
 
 - Debian GNU/Linux 13.6, Python 3.13.5; ffprobe/ffmpeg 7.1.5.
-- Full pytest: **396 passed, one warning, zero skips**.
-- Focused Task 3.4 suite: **35 passed, zero skips**.
+- Full pytest: **418 passed, one warning, zero skips**.
+- Focused Task 3.4 suite: **41 passed, zero skips**.
 - Ruff lint, Ruff format (`128 files already formatted`) and strict mypy (`122 source files`):
   **PASS**.
 - Alembic lifecycle: empty upgrade, repeat upgrade, downgrade to `20260810_0004`, and re-upgrade to
   `20260914_0005`: **PASS**, including preservation of an existing `playable_renditions` foreign key.
-- Generated H.264/MKV media was inspected successfully: 1,000,000 microseconds, `matroska/webm`,
-  and a 64x64 H.264 video stream.
+- Generated H.264/MKV media was inspected successfully: 1,021,000 microseconds, `matroska/webm`,
+  with H.264 video and AAC audio; generated corrupt media classified as `probe.corrupt_media`.
 - Tests covered typed failures, timeout/output bounds and process cleanup, malformed output, exact
   duration/rational parsing, audio/subtitle extraction, version/capability refresh, stale-result
   rejection, signature invalidation, immutable attempts/observations and no ffprobe-derived
   `verified_playable` claim.
 
 The single warning is an unrelated Starlette/AnyIO deprecation warning. These results accept the
-`0a8a7f0` implementation state only; the post-validation hardening at `2355e96f` is not yet accepted.
-Task 3.5, broader catalogue identity policy, APIs, WebUI, NAS, and Phase 3 closure remain later work.
+`31eba26` implementation state for Task 3.4. Expert independently approved the final diff and
+fresh evidence. Task 3.5, broader catalogue identity policy, APIs, WebUI, NAS, and Phase 3 closure
+remain later work.
 
 ## Phase 3 exit review
 
@@ -620,4 +621,4 @@ items resolved or reported as blockers, full backend/frontend quality suites, cl
 reference Dell/NAS/browser evidence, security/artifact audit, documented performance measurements,
 and confirmation that no Phase 4 scheduling or Phase 5 TV UI behavior was introduced.
 
-| Task 3.4 ffprobe domain/parser/coordinator/persistence | Previous `0a8a7f0` validation: 396 pytest passed (one warning, zero skips), focused 35 passed; current `2355e96f` hardening awaits rerun | Reference-Dell rerun required before current-tip acceptance | PARTIAL |
+| Task 3.4 ffprobe domain/parser/coordinator/persistence | `31eba26`: Dell 418 pytest passed (one warning, zero skips), focused 41 passed; Ruff/format/mypy/Alembic and real ffprobe checks passed | Accepted for Task 3.4 scope; later identity/integration work remains | PASS |

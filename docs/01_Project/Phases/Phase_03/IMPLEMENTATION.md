@@ -244,10 +244,9 @@ Rules for every task:
 
 ### Task 3.4 — ffprobe metadata and supported-format policy
 
-**Acceptance status: PARTIAL pending validation of the current tip.** The previous reference-Dell
-validation was completed against implementation commit `0a8a7f0` on Debian 13.6/Python 3.13.5;
-post-validation hardening is present in current tip `2355e96f` and requires the same validation
-rerun before acceptance. The task adds structured
+**Acceptance status: PASS for the approved Task 3.4 scope.** Reference-Dell validation was completed
+against implementation commit `31eba26aa4e037d306f9680ab715e3e5b42e4d86` on Debian 13.6/Python
+3.13.5 with ffprobe 7.1.5. The task adds structured
 technical inspection and transparent format states (`P3-PROBE`); discovery remains responsible
 only for cheap observations.
 
@@ -258,28 +257,32 @@ only for cheap observations.
   pointers and immutable attempt/observation records. The SQLite migration uses direct additive
   columns and preserves existing foreign-key data without table reconstruction.
 - **Safety semantics:** fixed argv with no shell or stdin, bounded output, process-group timeout
-  kill/reap, typed sanitized failures, exact duration/rational normalization, stale-result rejection,
-  and current-pointer consistency. Historical successful observations remain immutable; an ordinary
+  kill/reap with bounded cleanup, typed sanitized failures, exact duration/rational normalization,
+  stale-result rejection, capability-aware no-reprobe and current-pointer consistency. Historical
+  successful observations remain immutable; an ordinary
   read cannot present one as current after a failed refresh. `verified_playable` remains outside the
   authority of ffprobe alone.
 - **Scope boundary:** no Task 3.5 matching, replacement, duplicate reconciliation, API/UI/auth, SMB,
   MPV, Phase 4, or Phase 5 behavior was introduced; no logical catalogue/rendition/media-item rows
   are created by probing.
 
-**Reference-Dell evidence:** full pytest **396 passed, one warning, zero skips**; focused Task 3.4
-suite **35 passed, zero skips**; Ruff lint **PASS**; Ruff format **PASS** (`128 files already
-formatted`); strict mypy **PASS** (`122 source files`); and Alembic empty upgrade, repeat upgrade,
-downgrade to `20260810_0004`, and re-upgrade to `20260914_0005` **PASS**. The installed `ffprobe`
-was 7.1.5. A generated H.264/MKV fixture was inspected successfully as 1,000,000 microseconds,
-`matroska/webm`, with a 64x64 H.264 video stream. Parser and coordinator evidence covered audio and
-subtitle facts, exact duration/rational conversion, timeout/output-limit/exit/malformed failures,
-version refresh, cancellation-safe process cleanup, stale snapshots, signature invalidation and
-immutable persistence. Production application code, configuration, database, media and appliance
-runtime were not targeted; all validation used disposable resources.
+**Reference-Dell evidence:** full pytest **418 passed, one warning, zero skips**; focused Task 3.4
+suite **41 passed**; Ruff lint **PASS**; Ruff format **PASS** (`128 files already formatted`);
+strict mypy **PASS** (`122 source files`); and Alembic empty upgrade, repeat upgrade, downgrade to
+`20260810_0004`, and re-upgrade to `20260914_0005` **PASS**. A generated H.264/MKV fixture was
+inspected through real ffprobe as `TechnicalMetadata` with duration 1,021,000 microseconds,
+`matroska/webm`, and video/audio streams; generated corrupt media was classified as
+`probe.corrupt_media`. Tests covered capability-aware no-reprobe and refresh, scan/probe
+lost-update protection, atomic stale-result rejection, capability changes, bounded cancellation
+cleanup, malformed/unsupported metadata and immutable evidence. Production application code,
+configuration, database, media and appliance runtime were not targeted; all validation used
+disposable resources.
 
 One unrelated Starlette/AnyIO deprecation warning remains recorded from the full suite. Broader
 `P3-SCAN`, Phase 3 closure, performance/concurrency evidence and later catalogue identity work remain
-`PARTIAL`; Task 3.5 has not started.
+`PARTIAL`; Task 3.5 has not started. Expert independently approved the final implementation and
+evidence. One non-blocking note is that simultaneous forced refreshes may append duplicate immutable
+evidence without corrupting current state.
 
 ### Task 3.5 — Rename, replacement and duplicate reconciliation
 
