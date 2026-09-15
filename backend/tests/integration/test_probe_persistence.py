@@ -1,5 +1,6 @@
 """Probe evidence persistence against disposable SQLite state."""
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 from sqlalchemy import Engine, func, select
@@ -25,6 +26,7 @@ from nostalgiabox.persistence.models import (
     ProbeObservationRecord,
 )
 from nostalgiabox.persistence.probe_uow import SqlAlchemyProbeUnitOfWork
+from nostalgiabox.persistence.scan_repositories import SqlAlchemyMediaInventoryRepository
 
 _NOW = datetime(2026, 9, 14, 12, tzinfo=UTC)
 
@@ -91,6 +93,9 @@ def test_repository_persists_immutable_attempts_observations_and_current_pointer
                 }
             ),
             metadata.observation_signature,
+            media_file.probe_state,
+            media_file.probe_observation_signature,
+            media_file.probe_capability_version,
         )
         unit_of_work.commit()
 
@@ -131,6 +136,9 @@ def test_failed_refresh_keeps_prior_evidence_but_moves_current_pointer_to_failur
                 }
             ),
             '["Episode.mkv",100,200]',
+            media_file.probe_state,
+            media_file.probe_observation_signature,
+            media_file.probe_capability_version,
         )
         unit_of_work.commit()
 
@@ -143,3 +151,40 @@ def test_failed_refresh_keeps_prior_evidence_but_moves_current_pointer_to_failur
         assert record is not None
         assert record.probe_state == ProbeState.INSPECTION_FAILED.value
         assert record.probe_capability_version == "capability-2"
+
+
+def test_unchanged_scan_store_preserves_probe_pointer_committed_after_its_snapshot(
+    persistence_engine: Engine,
+) -> None:
+    factory = sessionmaker(bind=persistence_engine, expire_on_commit=False)
+    media_file = _store_file(factory)
+    signature = '["Episode.mkv",100,200]'
+
+    with factory() as scan_session:
+        inventory = SqlAlchemyMediaInventoryRepository(scan_session)
+        stale = inventory.get_present(media_file.source_id, media_file.normalized_relative_locator)
+        assert stale is not None
+        with SqlAlchemyProbeUnitOfWork(factory) as probe_uow:
+            assert probe_uow.probes.update_file_if_current(
+                replace(
+                    media_file,
+                    probe_state=ProbeState.COMPATIBLE_CANDIDATE,
+                    probe_observation_signature=signature,
+                    probe_capability_version="capability-1",
+                ),
+                signature,
+                media_file.probe_state,
+                media_file.probe_observation_signature,
+                media_file.probe_capability_version,
+            )
+            probe_uow.commit()
+        inventory.store(replace(stale, last_seen_generation=2, last_observed_utc=_NOW))
+        scan_session.commit()
+
+    with factory() as session:
+        current = session.get(MediaFileRecord, media_file.id.value)
+        assert current is not None
+        assert current.last_seen_generation == 2
+        assert current.probe_state == ProbeState.COMPATIBLE_CANDIDATE.value
+        assert current.probe_observation_signature == signature
+        assert current.probe_capability_version == "capability-1"

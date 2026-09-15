@@ -227,3 +227,15 @@ def test_known_ffprobe_parse_diagnostic_is_classified_as_corrupt_media() -> None
 
     assert isinstance(result, ProbeFailure)
     assert result.code is ProbeFailureCode.CORRUPT_MEDIA
+
+
+def test_capability_fingerprint_changes_with_ffprobe_version_output() -> None:
+    adapter = FfprobeAdapter(
+        FakeRunner(_version(), ProcessResult(0, b"ffprobe version 8.0\n", b""))
+    )
+
+    first = adapter.capability_version
+    second = adapter.capability_version
+
+    assert first.startswith("ffprobe-")
+    assert first != second

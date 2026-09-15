@@ -56,7 +56,12 @@ class ProbeRepository(Protocol):
     ) -> None: ...
 
     def update_file_if_current(
-        self, media_file: MediaFile, expected_observation_signature: str
+        self,
+        media_file: MediaFile,
+        expected_observation_signature: str,
+        expected_probe_state: ProbeState,
+        expected_probe_observation_signature: str | None,
+        expected_probe_capability_version: str | None,
     ) -> bool: ...
 
 
@@ -145,8 +150,12 @@ class ProbeCoordinator:
                     probe_capability_version=capability_version,
                 ),
                 signature,
+                media_file.probe_state,
+                media_file.probe_observation_signature,
+                media_file.probe_capability_version,
             ):
-                return ProbeState.DISCOVERED
+                current = unit_of_work.probes.get_file(media_file_id)
+                return ProbeState.DISCOVERED if current is None else current.probe_state
             if isinstance(result, ProbeFailure):
                 unit_of_work.probes.store_attempt(
                     self._id_factory(),

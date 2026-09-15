@@ -3,7 +3,7 @@
 import json
 from datetime import datetime
 
-from sqlalchemy import update
+from sqlalchemy import SQLColumnExpression, update
 from sqlalchemy.orm import Session
 
 from nostalgiabox.domain.catalogue import MediaFile, MediaFileId, ProbeState
@@ -28,9 +28,14 @@ class SqlAlchemyProbeRepository:
         return None if record is None else media_file_from_record(record)
 
     def update_file_if_current(
-        self, media_file: MediaFile, expected_observation_signature: str
+        self,
+        media_file: MediaFile,
+        expected_observation_signature: str,
+        expected_probe_state: ProbeState,
+        expected_probe_observation_signature: str | None,
+        expected_probe_capability_version: str | None,
     ) -> bool:
-        """CAS the pointer against the exact Task 3.3 cheap observation."""
+        """CAS the pointer against observation and the snapshot probe pointer."""
         locator, size_bytes, modified_time_ns = _decode_observation_signature(
             expected_observation_signature
         )
@@ -43,6 +48,15 @@ class SqlAlchemyProbeRepository:
                 MediaFileRecord.normalized_relative_locator == locator,
                 MediaFileRecord.size_bytes == size_bytes,
                 MediaFileRecord.modified_time_ns == modified_time_ns,
+                MediaFileRecord.probe_state == expected_probe_state.value,
+                _matches_nullable(
+                    MediaFileRecord.probe_observation_signature,
+                    expected_probe_observation_signature,
+                ),
+                _matches_nullable(
+                    MediaFileRecord.probe_capability_version,
+                    expected_probe_capability_version,
+                ),
             )
             .values(
                 probe_state=encoded.probe_state,
@@ -115,6 +129,14 @@ def _decode_observation_signature(signature: str) -> tuple[str, int, int]:
     ):
         raise ValueError("invalid cheap observation signature")
     return locator, size_bytes, modified_time_ns
+
+
+def _matches_nullable(
+    column: SQLColumnExpression[str | None], value: str | None
+) -> SQLColumnExpression[bool]:
+    if value is None:
+        return column.is_(None)
+    return column == value
 
 
 def _stream_payload(stream: StreamFact) -> dict[str, object]:

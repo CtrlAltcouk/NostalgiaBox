@@ -98,3 +98,32 @@ def test_keyboard_interrupt_kills_and_reaps_the_process_group(
         except (FileNotFoundError, ProcessLookupError):
             continue
         assert state == "Z"
+
+
+def test_timeout_kills_descendant_after_direct_child_exits_with_inherited_pipes(
+    tmp_path: Path,
+) -> None:
+    pid_path = tmp_path / "descendant.pid"
+    child_script = (
+        "import os, pathlib, time; "
+        f"pathlib.Path({str(pid_path)!r}).write_text(str(os.getpid())); "
+        "time.sleep(30)"
+    )
+    script = (
+        "import subprocess, sys; "
+        f"subprocess.Popen([sys.executable, '-c', {child_script!r}]); "
+        "sys.exit(0)"
+    )
+
+    with pytest.raises(ProbeRunnerError) as raised:
+        SubprocessRunner().run(
+            (sys.executable, "-c", script), timeout_seconds=0.05, output_limit=1024
+        )
+
+    assert raised.value.failure.code is ProbeFailureCode.TIMEOUT
+    descendant_pid = int(pid_path.read_text())
+    try:
+        state = Path(f"/proc/{descendant_pid}/stat").read_text().split()[2]
+    except FileNotFoundError:
+        return
+    assert state == "Z"

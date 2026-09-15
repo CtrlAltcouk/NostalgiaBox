@@ -40,13 +40,24 @@ class InMemoryRepository:
         self.metadata.append(args)
 
     def update_file_if_current(
-        self, media_file: MediaFile, expected_observation_signature: str
+        self,
+        media_file: MediaFile,
+        expected_observation_signature: str,
+        expected_probe_state: ProbeState,
+        expected_probe_observation_signature: str | None,
+        expected_probe_capability_version: str | None,
     ) -> bool:
         if self.before_cas is not None:
             self.before_cas()
             self.before_cas = None
         current = self.files.get(media_file.id.value)
-        if current is None or observation_signature(current) != expected_observation_signature:
+        if (
+            current is None
+            or observation_signature(current) != expected_observation_signature
+            or current.probe_state is not expected_probe_state
+            or current.probe_observation_signature != expected_probe_observation_signature
+            or current.probe_capability_version != expected_probe_capability_version
+        ):
             return False
         self.files[media_file.id.value] = media_file
         return True
@@ -348,3 +359,27 @@ def test_capability_snapshot_is_retained_for_failures() -> None:
     assert state is ProbeState.INSPECTION_FAILED
     assert repository.attempts[0][3] == "capability-1"
     assert repository.files["file-1"].probe_capability_version == "capability-1"
+
+
+def test_late_concurrent_probe_returns_the_winning_current_state() -> None:
+    media_file = _file()
+    repository = InMemoryRepository({"file-1": media_file})
+    events: list[str] = []
+    repository.before_cas = lambda: repository.files.__setitem__(
+        "file-1",
+        replace(
+            media_file,
+            probe_state=ProbeState.UNSUPPORTED,
+            probe_observation_signature=observation_signature(media_file),
+            probe_capability_version="capability-2",
+        ),
+    )
+
+    state = _coordinator(
+        repository, FakeGateway(_metadata(observation_signature(media_file)), events), events
+    ).inspect(media_file.id)
+
+    assert state is ProbeState.UNSUPPORTED
+    assert not repository.attempts
+    assert not repository.metadata
+    assert repository.files["file-1"].probe_capability_version == "capability-2"

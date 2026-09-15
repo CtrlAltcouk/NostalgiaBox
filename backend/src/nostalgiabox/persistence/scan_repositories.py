@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import exists, func, select, update
+from sqlalchemy import case, exists, func, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -140,7 +140,7 @@ class SqlAlchemyMediaInventoryRepository:
         if record is None:
             self._session.add(encoded)
             return
-        for name in (
+        discovery_fields = (
             "source_id",
             "normalized_relative_locator",
             "original_relative_locator",
@@ -153,11 +153,36 @@ class SqlAlchemyMediaInventoryRepository:
             "first_observed_utc_us",
             "last_observed_utc_us",
             "missing_since_utc_us",
-            "probe_state",
-            "probe_observation_signature",
-            "probe_capability_version",
-        ):
-            setattr(record, name, getattr(encoded, name))
+        )
+        observation_changed = or_(
+            MediaFileRecord.normalized_relative_locator != encoded.normalized_relative_locator,
+            MediaFileRecord.size_bytes.is_(None),
+            MediaFileRecord.size_bytes != encoded.size_bytes,
+            MediaFileRecord.modified_time_ns.is_(None),
+            MediaFileRecord.modified_time_ns != encoded.modified_time_ns,
+        )
+        values = {name: getattr(encoded, name) for name in discovery_fields}
+        # A scan can read before a concurrent probe commits. Only a changed
+        # cheap observation may reset its pointer; unchanged observations preserve it.
+        values.update(
+            probe_state=case(
+                (observation_changed, encoded.probe_state), else_=MediaFileRecord.probe_state
+            ),
+            probe_observation_signature=case(
+                (observation_changed, encoded.probe_observation_signature),
+                else_=MediaFileRecord.probe_observation_signature,
+            ),
+            probe_capability_version=case(
+                (observation_changed, encoded.probe_capability_version),
+                else_=MediaFileRecord.probe_capability_version,
+            ),
+        )
+        self._session.execute(
+            update(MediaFileRecord)
+            .where(MediaFileRecord.id == media_file.id.value)
+            .values(**values)
+            .execution_options(synchronize_session=False)
+        )
 
     def mark_unseen_missing(
         self,

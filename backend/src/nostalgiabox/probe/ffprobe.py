@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import contextlib
+import hashlib
 import json
 import os
 import selectors
@@ -25,6 +26,8 @@ from nostalgiabox.domain.probe import (
 )
 
 _READ_CHUNK_SIZE = 64 * 1024
+_CLEANUP_TIMEOUT_SECONDS = 0.2
+_CAPABILITY_POLICY = b"nostalgiabox.ffprobe.metadata-schema-v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,10 +131,22 @@ class SubprocessRunner:
 
     @staticmethod
     def _kill_and_reap(process: subprocess.Popen[bytes]) -> None:
-        if process.poll() is None:
-            with contextlib.suppress(ProcessLookupError):
-                os.killpg(process.pid, signal.SIGKILL)
-        process.communicate()
+        # The direct child can exit while descendants retain its output pipes.
+        # Its process group still needs killing, regardless of poll()'s result.
+        with contextlib.suppress(ProcessLookupError):
+            os.killpg(process.pid, signal.SIGKILL)
+        try:
+            process.communicate(timeout=_CLEANUP_TIMEOUT_SECONDS)
+            return
+        except subprocess.TimeoutExpired:
+            pass
+        finally:
+            for stream in (process.stdout, process.stderr):
+                if stream is not None:
+                    with contextlib.suppress(OSError):
+                        stream.close()
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            process.wait(timeout=_CLEANUP_TIMEOUT_SECONDS)
 
 
 class FfprobeAdapter:
@@ -142,7 +157,7 @@ class FfprobeAdapter:
         runner: ProcessRunner,
         *,
         executable: str = "ffprobe",
-        capability_version: str = "ffprobe-v1",
+        capability_version: str = "ffprobe-metadata-v1",
         timeout_seconds: float = 15.0,
         output_limit: int = 1_000_000,
     ) -> None:
@@ -150,14 +165,14 @@ class FfprobeAdapter:
             raise ValueError("invalid probe limits or capability version")
         self._runner = runner
         self._executable = executable
-        self.capability_version = capability_version
+        self._capability_policy = capability_version.encode("utf-8") + b"\0" + _CAPABILITY_POLICY
         self._timeout_seconds = timeout_seconds
         self._output_limit = output_limit
 
     def inspect(self, path: str, observation_signature: str) -> TechnicalMetadata | ProbeFailure:
-        version_failure = self._verify_version()
-        if version_failure is not None:
-            return version_failure
+        version = self._version_result()
+        if isinstance(version, ProbeFailure):
+            return version
         argv = (
             self._executable,
             "-v",
@@ -185,7 +200,7 @@ class FfprobeAdapter:
                 )
             return ProbeFailure(ProbeFailureCode.NONZERO_EXIT, "ffprobe rejected the media input")
         try:
-            return _parse(json.loads(result.stdout), observation_signature, self.capability_version)
+            return _parse(json.loads(result.stdout), observation_signature, version)
         except json.JSONDecodeError:
             return ProbeFailure(
                 ProbeFailureCode.MALFORMED_OUTPUT, "ffprobe returned malformed metadata"
@@ -199,7 +214,15 @@ class FfprobeAdapter:
                 ProbeFailureCode.MALFORMED_OUTPUT, "ffprobe returned malformed metadata"
             )
 
-    def _verify_version(self) -> ProbeFailure | None:
+    @property
+    def capability_version(self) -> str:
+        """Fingerprint the executable version and fixed parsing policy on demand."""
+        version = self._version_result()
+        if isinstance(version, ProbeFailure):
+            return _capability_fingerprint(b"unavailable", self._capability_policy)
+        return version
+
+    def _version_result(self) -> str | ProbeFailure:
         try:
             result = self._runner.run(
                 (self._executable, "-version"),
@@ -214,7 +237,12 @@ class FfprobeAdapter:
             )
         if result.returncode != 0:
             return ProbeFailure(ProbeFailureCode.VERSION_FAILED, "ffprobe version check failed")
-        return None
+        return _capability_fingerprint(result.stdout, self._capability_policy)
+
+
+def _capability_fingerprint(version_output: bytes, policy: bytes) -> str:
+    digest = hashlib.sha256(version_output + b"\0" + policy).hexdigest()
+    return f"ffprobe-{digest}"
 
 
 def _looks_corrupt(stderr: bytes) -> bool:
