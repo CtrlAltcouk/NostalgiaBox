@@ -16,17 +16,39 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
-    # SQLite cannot batch-rebuild media_files while existing Phase 3 tables
-    # reference it with foreign_keys enabled. These additive columns are safe
-    # with direct ALTER TABLE and domain/ORM validation enforces their pairing.
+    # SQLite supports these additive columns and their local check constraints.
     op.add_column(
         "media_files",
-        sa.Column("probe_state", sa.String(), nullable=False, server_default="discovered"),
+        sa.Column(
+            "probe_state",
+            sa.String(),
+            sa.CheckConstraint(
+                "probe_state IN ('discovered', 'inspected', 'compatible_candidate', "
+                "'unsupported', 'inspection_failed')",
+                name="ck_media_files_probe_state",
+            ),
+            nullable=False,
+            server_default="discovered",
+        ),
     )
     op.add_column(
         "media_files", sa.Column("probe_observation_signature", sa.String(), nullable=True)
     )
-    op.add_column("media_files", sa.Column("probe_capability_version", sa.String(), nullable=True))
+    op.add_column(
+        "media_files",
+        sa.Column(
+            "probe_capability_version",
+            sa.String(),
+            sa.CheckConstraint(
+                "(probe_state = 'discovered' AND probe_observation_signature IS NULL "
+                "AND probe_capability_version IS NULL) OR (probe_state != 'discovered' "
+                "AND length(trim(probe_observation_signature)) > 0 "
+                "AND length(trim(probe_capability_version)) > 0)",
+                name="ck_media_files_probe_evidence",
+            ),
+            nullable=True,
+        ),
+    )
     op.create_table(
         "probe_attempts",
         sa.Column("id", sa.String(), primary_key=True),

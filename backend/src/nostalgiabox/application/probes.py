@@ -55,7 +55,9 @@ class ProbeRepository(Protocol):
         inspected_utc: datetime,
     ) -> None: ...
 
-    def update_file(self, media_file: MediaFile) -> None: ...
+    def update_file_if_current(
+        self, media_file: MediaFile, expected_observation_signature: str
+    ) -> bool: ...
 
 
 class ProbeUnitOfWork(AbstractContextManager["ProbeUnitOfWork"], Protocol):
@@ -88,7 +90,7 @@ class ProbeCoordinator:
         self._path_resolver = path_resolver
         self._id_factory = id_factory or (lambda: str(uuid4()))
 
-    def inspect(self, media_file_id: MediaFileId) -> ProbeState:
+    def inspect(self, media_file_id: MediaFileId, *, refresh: bool = False) -> ProbeState:
         """Inspect exactly one present discovery observation.
 
         The first UoW closes before resolving/running the process. The second
@@ -101,6 +103,12 @@ class ProbeCoordinator:
 
         signature = observation_signature(media_file)
         capability_version = self._gateway.capability_version
+        if (
+            not refresh
+            and media_file.probe_observation_signature == signature
+            and media_file.probe_capability_version == capability_version
+        ):
+            return media_file.probe_state
         try:
             result = self._gateway.inspect(self._path_resolver(media_file), signature)
         except Exception:
@@ -124,26 +132,32 @@ class ProbeCoordinator:
         attempted_at = self._clock.now()
 
         with self._uow_factory() as unit_of_work:
-            current = unit_of_work.probes.get_file(media_file_id)
-            if current is None or current.presence is not FilePresenceState.PRESENT:
-                return ProbeState.DISCOVERED
-            if observation_signature(current) != signature:
-                return ProbeState.DISCOVERED
-
             if isinstance(result, ProbeFailure):
                 state = ProbeState.INSPECTION_FAILED
+            else:
+                is_candidate = compatible(result)
+                state = ProbeState.COMPATIBLE_CANDIDATE if is_candidate else ProbeState.UNSUPPORTED
+            if not unit_of_work.probes.update_file_if_current(
+                replace(
+                    media_file,
+                    probe_state=state,
+                    probe_observation_signature=signature,
+                    probe_capability_version=capability_version,
+                ),
+                signature,
+            ):
+                return ProbeState.DISCOVERED
+            if isinstance(result, ProbeFailure):
                 unit_of_work.probes.store_attempt(
                     self._id_factory(),
                     media_file_id,
                     signature,
-                    self._gateway.capability_version,
+                    capability_version,
                     state,
                     attempted_at,
                     result,
                 )
             else:
-                is_candidate = compatible(result)
-                state = ProbeState.COMPATIBLE_CANDIDATE if is_candidate else ProbeState.UNSUPPORTED
                 unit_of_work.probes.store_metadata(
                     self._id_factory(), media_file_id, result, is_candidate, attempted_at
                 )
@@ -151,21 +165,11 @@ class ProbeCoordinator:
                     self._id_factory(),
                     media_file_id,
                     signature,
-                    result.capability_version,
+                    capability_version,
                     state,
                     attempted_at,
                     None,
                 )
-                capability_version = result.capability_version
-
-            unit_of_work.probes.update_file(
-                replace(
-                    current,
-                    probe_state=state,
-                    probe_observation_signature=signature,
-                    probe_capability_version=capability_version,
-                )
-            )
             unit_of_work.commit()
         return state
 

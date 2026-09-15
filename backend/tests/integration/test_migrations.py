@@ -241,6 +241,15 @@ def _assert_probe_evidence_schema(database_url: str) -> None:
             "probe_observation_signature",
             "probe_capability_version",
         }.issubset(file_columns)
+        with engine.connect() as connection:
+            media_file_sql = connection.scalar(
+                text("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'media_files'")
+            )
+        assert media_file_sql is not None
+        assert (
+            "probe_state IN ('discovered', 'inspected', 'compatible_candidate', " in media_file_sql
+        )
+        assert "ck_media_files_probe_evidence" in media_file_sql
         attempt_indexes = {index["name"] for index in inspector.get_indexes("probe_attempts")}
         observation_indexes = {
             index["name"] for index in inspector.get_indexes("probe_observations")

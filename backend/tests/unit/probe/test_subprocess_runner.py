@@ -1,6 +1,7 @@
 """Subprocess runner failure cleanup tests."""
 
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -66,3 +67,34 @@ def test_missing_executable_has_typed_sanitized_failure() -> None:
 
     assert raised.value.failure.code is ProbeFailureCode.EXECUTABLE_MISSING
     assert "definitely" not in raised.value.failure.message
+
+
+def test_keyboard_interrupt_kills_and_reaps_the_process_group(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_pids: list[int] = []
+
+    def interrupt_after_child_starts(
+        process: subprocess.Popen[bytes], timeout_seconds: float, output_limit: int
+    ) -> object:
+        assert process.stdout is not None
+        child_pid = int(process.stdout.readline())
+        captured_pids.extend((process.pid, child_pid))
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(SubprocessRunner, "_collect", staticmethod(interrupt_after_child_starts))
+    script = (
+        "import subprocess, sys, time; "
+        "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(30)']); "
+        "print(child.pid, flush=True); time.sleep(30)"
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        SubprocessRunner().run((sys.executable, "-c", script), timeout_seconds=5, output_limit=1024)
+
+    for pid in captured_pids:
+        try:
+            state = Path(f"/proc/{pid}/stat").read_text().split()[2]
+        except (FileNotFoundError, ProcessLookupError):
+            continue
+        assert state == "Z"

@@ -28,6 +28,7 @@ class InMemoryRepository:
         self.files = files
         self.attempts: list[tuple[object, ...]] = []
         self.metadata: list[tuple[object, ...]] = []
+        self.before_cas: Callable[[], None] | None = None
 
     def get_file(self, media_file_id: MediaFileId) -> MediaFile | None:
         return self.files.get(media_file_id.value)
@@ -38,8 +39,17 @@ class InMemoryRepository:
     def store_metadata(self, *args: object) -> None:
         self.metadata.append(args)
 
-    def update_file(self, media_file: MediaFile) -> None:
+    def update_file_if_current(
+        self, media_file: MediaFile, expected_observation_signature: str
+    ) -> bool:
+        if self.before_cas is not None:
+            self.before_cas()
+            self.before_cas = None
+        current = self.files.get(media_file.id.value)
+        if current is None or observation_signature(current) != expected_observation_signature:
+            return False
         self.files[media_file.id.value] = media_file
+        return True
 
 
 class FakeUow(AbstractContextManager["FakeUow"]):
@@ -242,3 +252,99 @@ def test_mismatched_metadata_is_rejected_and_does_not_become_current_facts() -> 
     failure = repository.attempts[0][-1]
     assert isinstance(failure, ProbeFailure)
     assert failure.code is ProbeFailureCode.INVALID_METADATA
+
+
+def test_unchanged_current_capability_is_not_reprobed_without_refresh() -> None:
+    original = _file()
+    media_file = replace(
+        original,
+        probe_state=ProbeState.COMPATIBLE_CANDIDATE,
+        probe_observation_signature=observation_signature(original),
+        probe_capability_version="capability-1",
+    )
+    repository = InMemoryRepository({"file-1": media_file})
+    events: list[str] = []
+
+    state = _coordinator(
+        repository, FakeGateway(_metadata(observation_signature(original)), events), events
+    ).inspect(media_file.id)
+
+    assert state is ProbeState.COMPATIBLE_CANDIDATE
+    assert events == ["enter", "exit"]
+    assert not repository.attempts
+
+
+def test_explicit_refresh_reprobes_unchanged_current_capability() -> None:
+    original = _file()
+    media_file = replace(
+        original,
+        probe_state=ProbeState.COMPATIBLE_CANDIDATE,
+        probe_observation_signature=observation_signature(original),
+        probe_capability_version="capability-1",
+    )
+    repository = InMemoryRepository({"file-1": media_file})
+    events: list[str] = []
+
+    state = _coordinator(
+        repository, FakeGateway(_metadata(observation_signature(original)), events), events
+    ).inspect(media_file.id, refresh=True)
+
+    assert state is ProbeState.COMPATIBLE_CANDIDATE
+    assert "inspect" in events
+    assert len(repository.attempts) == 1
+
+
+def test_second_uow_cas_rejects_a_signature_changed_after_the_process() -> None:
+    media_file = _file()
+    repository = InMemoryRepository({"file-1": media_file})
+    events: list[str] = []
+    repository.before_cas = lambda: repository.files.__setitem__(
+        "file-1", replace(media_file, modified_time_ns=201)
+    )
+
+    state = _coordinator(
+        repository, FakeGateway(_metadata(observation_signature(media_file)), events), events
+    ).inspect(media_file.id)
+
+    assert state is ProbeState.DISCOVERED
+    assert not repository.attempts
+    assert not repository.metadata
+    assert repository.files["file-1"].modified_time_ns == 201
+
+
+def test_capability_is_snapshotted_for_result_attempt_and_current_pointer() -> None:
+    media_file = _file()
+    repository = InMemoryRepository({"file-1": media_file})
+    events: list[str] = []
+    gateway = FakeGateway(_metadata(observation_signature(media_file)), events)
+
+    def change_capability(path: str, signature: str) -> TechnicalMetadata:
+        gateway.capability_version = "capability-2"
+        return _metadata(signature)
+
+    gateway.on_inspect = change_capability
+    state = _coordinator(repository, gateway, events).inspect(media_file.id)
+
+    assert state is ProbeState.COMPATIBLE_CANDIDATE
+    assert repository.attempts[0][3] == "capability-1"
+    assert repository.files["file-1"].probe_capability_version == "capability-1"
+
+
+def test_capability_snapshot_is_retained_for_failures() -> None:
+    media_file = _file()
+    repository = InMemoryRepository({"file-1": media_file})
+    events: list[str] = []
+    gateway = FakeGateway(
+        ProbeFailure(ProbeFailureCode.TIMEOUT, "ffprobe exceeded its time limit"), events
+    )
+
+    def change_capability(path: str, signature: str) -> ProbeFailure:
+        gateway.capability_version = "capability-2"
+        return ProbeFailure(ProbeFailureCode.TIMEOUT, "ffprobe exceeded its time limit")
+
+    gateway.on_inspect = change_capability
+    state = _coordinator(repository, gateway, events).inspect(media_file.id)
+
+    assert state is ProbeState.INSPECTION_FAILED
+    assert repository.attempts[0][3] == "capability-1"
+    assert repository.files["file-1"].probe_capability_version == "capability-1"

@@ -78,7 +78,7 @@ def test_repository_persists_immutable_attempts_observations_and_current_pointer
             _NOW,
             None,
         )
-        unit_of_work.probes.update_file(
+        assert unit_of_work.probes.update_file_if_current(
             MediaFile(
                 **{
                     **{
@@ -89,7 +89,8 @@ def test_repository_persists_immutable_attempts_observations_and_current_pointer
                     "probe_observation_signature": metadata.observation_signature,
                     "probe_capability_version": metadata.capability_version,
                 }
-            )
+            ),
+            metadata.observation_signature,
         )
         unit_of_work.commit()
 
@@ -117,7 +118,7 @@ def test_failed_refresh_keeps_prior_evidence_but_moves_current_pointer_to_failur
             _NOW,
             ProbeFailure(ProbeFailureCode.TIMEOUT, "ffprobe exceeded its time limit"),
         )
-        unit_of_work.probes.update_file(
+        assert unit_of_work.probes.update_file_if_current(
             MediaFile(
                 **{
                     **{
@@ -128,7 +129,8 @@ def test_failed_refresh_keeps_prior_evidence_but_moves_current_pointer_to_failur
                     "probe_observation_signature": '["Episode.mkv",100,200]',
                     "probe_capability_version": "capability-2",
                 }
-            )
+            ),
+            '["Episode.mkv",100,200]',
         )
         unit_of_work.commit()
 

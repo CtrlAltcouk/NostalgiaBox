@@ -3,6 +3,7 @@
 import json
 from datetime import datetime
 
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from nostalgiabox.domain.catalogue import MediaFile, MediaFileId, ProbeState
@@ -26,17 +27,30 @@ class SqlAlchemyProbeRepository:
         record = self._session.get(MediaFileRecord, media_file_id.value)
         return None if record is None else media_file_from_record(record)
 
-    def update_file(self, media_file: MediaFile) -> None:
-        record = self._session.get(MediaFileRecord, media_file.id.value)
-        if record is None:
-            raise RuntimeError(f"media file {media_file.id.value!r} does not exist")
+    def update_file_if_current(
+        self, media_file: MediaFile, expected_observation_signature: str
+    ) -> bool:
+        """CAS the pointer against the exact Task 3.3 cheap observation."""
+        locator, size_bytes, modified_time_ns = _decode_observation_signature(
+            expected_observation_signature
+        )
         encoded = media_file_to_record(media_file)
-        for field in (
-            "probe_state",
-            "probe_observation_signature",
-            "probe_capability_version",
-        ):
-            setattr(record, field, getattr(encoded, field))
+        result = self._session.execute(
+            update(MediaFileRecord)
+            .where(
+                MediaFileRecord.id == media_file.id.value,
+                MediaFileRecord.presence == "present",
+                MediaFileRecord.normalized_relative_locator == locator,
+                MediaFileRecord.size_bytes == size_bytes,
+                MediaFileRecord.modified_time_ns == modified_time_ns,
+            )
+            .values(
+                probe_state=encoded.probe_state,
+                probe_observation_signature=encoded.probe_observation_signature,
+                probe_capability_version=encoded.probe_capability_version,
+            )
+        )
+        return result.rowcount == 1
 
     def store_attempt(
         self,
@@ -85,6 +99,22 @@ class SqlAlchemyProbeRepository:
                 inspected_utc_us=datetime_to_epoch_microseconds(inspected_utc),
             )
         )
+
+
+def _decode_observation_signature(signature: str) -> tuple[str, int, int]:
+    try:
+        locator, size_bytes, modified_time_ns = json.loads(signature)
+    except (TypeError, ValueError) as error:
+        raise ValueError("invalid cheap observation signature") from error
+    if (
+        not isinstance(locator, str)
+        or isinstance(size_bytes, bool)
+        or not isinstance(size_bytes, int)
+        or isinstance(modified_time_ns, bool)
+        or not isinstance(modified_time_ns, int)
+    ):
+        raise ValueError("invalid cheap observation signature")
+    return locator, size_bytes, modified_time_ns
 
 
 def _stream_payload(stream: StreamFact) -> dict[str, object]:

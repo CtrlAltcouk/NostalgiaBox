@@ -73,19 +73,21 @@ class SubprocessRunner:
             ) from error
         try:
             return self._collect(process, timeout_seconds, output_limit)
-        except ProbeRunnerError:
+        except BaseException as error:
             self._kill_and_reap(process)
+            if isinstance(error, ProbeRunnerError):
+                raise
+            if isinstance(error, subprocess.TimeoutExpired):
+                raise ProbeRunnerError(
+                    ProbeFailure(ProbeFailureCode.TIMEOUT, "ffprobe exceeded its time limit")
+                ) from error
+            if isinstance(error, OSError):
+                raise ProbeRunnerError(
+                    ProbeFailure(
+                        ProbeFailureCode.EXECUTION_FAILED, "ffprobe output could not be read"
+                    )
+                ) from error
             raise
-        except subprocess.TimeoutExpired as error:
-            self._kill_and_reap(process)
-            raise ProbeRunnerError(
-                ProbeFailure(ProbeFailureCode.TIMEOUT, "ffprobe exceeded its time limit")
-            ) from error
-        except OSError as error:
-            self._kill_and_reap(process)
-            raise ProbeRunnerError(
-                ProbeFailure(ProbeFailureCode.EXECUTION_FAILED, "ffprobe output could not be read")
-            ) from error
 
     @staticmethod
     def _collect(
@@ -177,6 +179,10 @@ class FfprobeAdapter:
                 ProbeFailureCode.OUTPUT_TOO_LARGE, "ffprobe output exceeded its limit"
             )
         if result.returncode != 0:
+            if _looks_corrupt(result.stderr):
+                return ProbeFailure(
+                    ProbeFailureCode.CORRUPT_MEDIA, "ffprobe could not parse the media input"
+                )
             return ProbeFailure(ProbeFailureCode.NONZERO_EXIT, "ffprobe rejected the media input")
         try:
             return _parse(json.loads(result.stdout), observation_signature, self.capability_version)
@@ -209,6 +215,12 @@ class FfprobeAdapter:
         if result.returncode != 0:
             return ProbeFailure(ProbeFailureCode.VERSION_FAILED, "ffprobe version check failed")
         return None
+
+
+def _looks_corrupt(stderr: bytes) -> bool:
+    """Classify only stable ffprobe parse diagnostics; never retain diagnostics."""
+    diagnostic = stderr.lower()
+    return b"invalid data found" in diagnostic or b"moov atom not found" in diagnostic
 
 
 def _parse(payload: object, signature: str, capability: str) -> TechnicalMetadata:

@@ -197,3 +197,33 @@ def test_adapter_rejects_invalid_or_unbounded_metadata(
 
     assert isinstance(result, ProbeFailure)
     assert result.code is ProbeFailureCode.INVALID_METADATA
+
+
+@pytest.mark.parametrize(
+    ("payload", "expected"),
+    [
+        (b"{", ProbeFailureCode.MALFORMED_OUTPUT),
+        (
+            b'{"format":{"duration":"not-a-duration","format_name":"matroska"},"streams":[]}',
+            ProbeFailureCode.INVALID_METADATA,
+        ),
+    ],
+)
+def test_corrupt_or_malformed_media_metadata_has_a_specific_failure_classification(
+    payload: bytes, expected: ProbeFailureCode
+) -> None:
+    result = FfprobeAdapter(FakeRunner(_version(), ProcessResult(0, payload, b""))).inspect(
+        "x", "sig"
+    )
+
+    assert isinstance(result, ProbeFailure)
+    assert result.code is expected
+
+
+def test_known_ffprobe_parse_diagnostic_is_classified_as_corrupt_media() -> None:
+    result = FfprobeAdapter(
+        FakeRunner(_version(), ProcessResult(1, b"", b"Invalid data found when processing input"))
+    ).inspect("x", "sig")
+
+    assert isinstance(result, ProbeFailure)
+    assert result.code is ProbeFailureCode.CORRUPT_MEDIA
