@@ -7,6 +7,7 @@ from enum import StrEnum
 _TEXT_LIMIT = 96
 _FRAME_RATE_LIMIT = 1_000_000
 _DIMENSION_LIMIT = 100_000
+_DISPOSITION_LIMIT = 16
 
 
 class ProbeDomainError(ValueError):
@@ -61,6 +62,24 @@ class StreamFact:
             raise ProbeDomainError("height is outside accepted bounds")
         if (self.frame_rate_numerator is None) != (self.frame_rate_denominator is None):
             raise ProbeDomainError("frame rate must be paired")
+        if self.codec_name is not None and (
+            self.codec_name != normalized_text(self.codec_name)
+            or len(self.codec_name) > _TEXT_LIMIT
+        ):
+            raise ProbeDomainError("codec name must be normalized and bounded")
+        if self.language is not None and (
+            self.language != normalized_text(self.language, limit=32) or len(self.language) > 32
+        ):
+            raise ProbeDomainError("language must be normalized and bounded")
+        if (
+            len(self.disposition) > _DISPOSITION_LIMIT
+            or tuple(sorted(set(self.disposition))) != self.disposition
+            or any(
+                value != normalized_text(value, limit=32) or len(value) > 32
+                for value in self.disposition
+            )
+        ):
+            raise ProbeDomainError("disposition must be normalized, unique, and bounded")
 
 
 @dataclass(frozen=True, slots=True)

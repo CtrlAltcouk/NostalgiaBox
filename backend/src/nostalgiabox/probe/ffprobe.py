@@ -76,6 +76,11 @@ class SubprocessRunner:
         except ProbeRunnerError:
             self._kill_and_reap(process)
             raise
+        except subprocess.TimeoutExpired as error:
+            self._kill_and_reap(process)
+            raise ProbeRunnerError(
+                ProbeFailure(ProbeFailureCode.TIMEOUT, "ffprobe exceeded its time limit")
+            ) from error
         except OSError as error:
             self._kill_and_reap(process)
             raise ProbeRunnerError(
@@ -218,7 +223,7 @@ def _parse(payload: object, signature: str, capability: str) -> TechnicalMetadat
     containers = tuple(
         item
         for item in (
-            normalized_text(value)
+            _bounded_text(value, 96)
             for value in _required_text(raw_format.get("format_name")).split(",")
         )
         if item
@@ -245,13 +250,7 @@ def _parse_stream(raw: object) -> StreamFact:
         kind,
         _bounded_text(raw.get("codec_name"), 96),
         _bounded_text((tags or {}).get("language"), 32),
-        tuple(
-            sorted(
-                key
-                for key, value in (dispositions or {}).items()
-                if isinstance(key, str) and 0 < len(key) <= 32 and value in (1, True)
-            )
-        ),
+        _dispositions(dispositions or {}),
         _dimension(raw.get("width")),
         _dimension(raw.get("height")),
         *(_rate(raw) or (None, None)),
@@ -272,6 +271,19 @@ def _bounded_text(value: object, limit: int) -> str | None:
         and len(" ".join(value.split()).casefold()) > limit
     ):
         raise ProbeDomainError("metadata text exceeds accepted bounds")
+    return normalized
+
+
+def _dispositions(values: dict[object, object]) -> tuple[str, ...]:
+    normalized_values: set[str] = set()
+    for key, value in values.items():
+        if isinstance(key, str) and value in (1, True):
+            normalized_key = _bounded_text(key, 32)
+            if normalized_key is not None:
+                normalized_values.add(normalized_key)
+    normalized = tuple(sorted(normalized_values))
+    if len(normalized) > 16:
+        raise ProbeDomainError("too many stream dispositions")
     return normalized
 
 

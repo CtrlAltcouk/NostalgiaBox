@@ -202,3 +202,43 @@ def test_missing_file_is_not_probed() -> None:
 
     assert state is ProbeState.DISCOVERED
     assert events == ["enter", "exit"]
+
+
+def test_gateway_exception_is_sanitized_and_persisted_as_inspection_failure() -> None:
+    media_file = _file()
+    repository = InMemoryRepository({"file-1": media_file})
+    events: list[str] = []
+    gateway = FakeGateway(_metadata(observation_signature(media_file)), events)
+
+    def raise_from_gateway(path: str, signature: str) -> TechnicalMetadata | ProbeFailure:
+        raise RuntimeError(f"unexpected probe path {path} for {signature}")
+
+    gateway.on_inspect = raise_from_gateway
+    state = _coordinator(repository, gateway, events).inspect(media_file.id)
+
+    assert state is ProbeState.INSPECTION_FAILED
+    failure = repository.attempts[0][-1]
+    assert isinstance(failure, ProbeFailure)
+    assert failure.code is ProbeFailureCode.EXECUTION_FAILED
+    assert "/media" not in failure.message
+
+
+def test_mismatched_metadata_is_rejected_and_does_not_become_current_facts() -> None:
+    media_file = _file()
+    repository = InMemoryRepository({"file-1": media_file})
+    events: list[str] = []
+    mismatch = TechnicalMetadata(
+        1,
+        ("matroska",),
+        (StreamFact("video", "h264", width=10, height=10),),
+        observation_signature(media_file),
+        "other-capability",
+    )
+
+    state = _coordinator(repository, FakeGateway(mismatch, events), events).inspect(media_file.id)
+
+    assert state is ProbeState.INSPECTION_FAILED
+    assert not repository.metadata
+    failure = repository.attempts[0][-1]
+    assert isinstance(failure, ProbeFailure)
+    assert failure.code is ProbeFailureCode.INVALID_METADATA

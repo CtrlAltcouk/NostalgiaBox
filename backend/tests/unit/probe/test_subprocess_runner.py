@@ -1,6 +1,8 @@
 """Subprocess runner failure cleanup tests."""
 
+import os
 import sys
+from pathlib import Path
 
 import pytest
 
@@ -32,6 +34,26 @@ def test_timeout_kills_and_reaps_process_group() -> None:
         )
 
     assert raised.value.failure.code is ProbeFailureCode.TIMEOUT
+
+
+def test_timeout_after_child_closes_output_is_still_killed_and_reaped(tmp_path: Path) -> None:
+    """A child may close stdout/stderr before sleeping; wait() must not leak it."""
+    pid_path = tmp_path / "child.pid"
+    script = (
+        "import os, pathlib, sys, time; "
+        f"pathlib.Path({str(pid_path)!r}).write_text(str(os.getpid())); "
+        "sys.stdout.close(); sys.stderr.close(); time.sleep(30)"
+    )
+
+    with pytest.raises(ProbeRunnerError) as raised:
+        SubprocessRunner().run(
+            (sys.executable, "-c", script), timeout_seconds=0.05, output_limit=1024
+        )
+
+    assert raised.value.failure.code is ProbeFailureCode.TIMEOUT
+    child_pid = int(pid_path.read_text())
+    with pytest.raises(ProcessLookupError):
+        os.kill(child_pid, 0)
 
 
 def test_missing_executable_has_typed_sanitized_failure() -> None:

@@ -5,7 +5,9 @@
 **In progress — 2026-08-10.** Tasks 3.1, 3.2 and 3.3 are `PASS` for their approved scopes. Task
 3.3 isolated reference-Dell validation at commit `96c8cdae6476e080b718844fcac919fc0aa845b1` on
 Debian 13.6/Python 3.13.5 passed 360 tests (one warning, zero skips); the focused suite passed 86.
-Task 3.4 has not started, and Phase 3 as a whole remains in progress.
+Task 3.4 is `PASS` for its approved scope: Debian 13.6/Python 3.13.5 reference-Dell validation passed
+396 tests (one unrelated third-party deprecation warning, zero skips), with a focused 35-test suite.
+Phase 3 as a whole remains in progress.
 
 Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 `DEFERRED-BY-APPROVED-SCOPE`.
@@ -43,11 +45,11 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Changed observation at same locator | Cheap signature change detected, provisional ID retained and safe issue emitted; no replacement claim | Dell generated change passed; Task 3.5 owns final identity | PASS |
 | Duplicate | Weak candidate stays separate; full confirmation groups without deletion | Copy across source fixtures | PLANNED |
 | Ambiguous fingerprint/collision | No silent merge; attention issue emitted | Not required—synthetic collision | PLANNED |
-| Corrupt file | Probe failure stored/safely displayed | Small operator-owned corrupt fixture | PLANNED |
-| Unsupported extension/content | Visible rejected/unsupported state and reason | Representative safe fixture | PLANNED |
-| ffprobe success | Exact duration/container/streams/rational fields | Real ffprobe on Dell | PLANNED |
-| ffprobe timeout/failure/malformed output | Typed categories, child cleanup, bounded output, redaction | Optional timeout smoke | PLANNED |
-| Probe capability/version refresh | Changed version triggers refresh; unchanged does not | Dell installed version recorded | PLANNED |
+| Corrupt file | Controlled typed inspection failure is stored without raw diagnostics | Small operator-owned corrupt fixture | PARTIAL |
+| Unsupported extension/content | Valid parsed media can persist `unsupported`; failures remain separate | Conservative policy tests; later catalogue policy remains separate | PASS |
+| ffprobe success | Adapter/parser tests cover duration/container/stream/rational fields | Generated H.264/MKV fixture on Dell with ffprobe 7.1.5 | PASS |
+| ffprobe timeout/failure/malformed output | Typed categories, child cleanup, bounded output and redaction pass | Dell subprocess cleanup smoke plus unit tests | PASS |
+| Probe capability/version refresh | Changed version triggers refresh; unchanged does not; explicit refresh creates an attempt | Dell ffprobe 7.1.5 recorded; capability semantics covered | PASS |
 | Source offline before scan | Controlled availability failure, prior files and successful-scan time retained, no traversal/reconciliation | Local fake passes; NAS disconnect belongs later | PARTIAL |
 | NAS authentication/permission failure | Distinct safe categories, secret absent from output | Test account/permissions | PLANNED |
 | NAS reconnect | Same source/file/catalogue IDs restored | Disconnect/reconnect test share | PLANNED |
@@ -66,7 +68,7 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Playback while scanning | Seeded Phase 2 runtime repeatedly resolves from same disposable DB during bounded scan writes | Dell same-DB runtime proof pending; real MPV concurrency later | PARTIAL |
 | Concurrent WebUI reads | Bounded latency/no lock failures while scan writes | Desktop/phone browse during scan | PLANNED |
 | SQLite busy/retry bounds | Transient busy recovers; persistent busy fails safely | Dell WAL/busy benchmark | PLANNED |
-| Migration lifecycle | Task 3.3 empty/current/repeat/downgrade/re-upgrade and populated Task 3.2 lossless preservation pass; duplicate legacy locators remain `UNCLASSIFIED` | Disposable Dell lifecycle through `20260810_0004` passed | PASS |
+| Migration lifecycle | Empty/current/repeat/downgrade/re-upgrade and referenced-file upgrade/downgrade pass through `20260914_0005`; duplicate legacy locators remain `UNCLASSIFIED` | Disposable Dell lifecycle through `20260914_0005` passed | PASS |
 | Source API | Validation, lifecycle, test, redaction, status codes | Live API smoke | PLANNED |
 | Scan API | 202/job ID, progress/history/issues, conflict/cancel | Live scan polling | PLANNED |
 | Catalogue API | Pagination/search/filter/detail/attention/corrections/ETag | Live browser use | PLANNED |
@@ -305,7 +307,7 @@ This evidence accepts the behavior owned by Task 3.2 only. Scanning, `MediaFile`
 retired state, physical-location retirement, active-only locator uniqueness, successful-scan
 timestamps, SMB/NAS and credentials, APIs, WebUI and Task 3.3+ remain `PARTIAL` or `PLANNED` as
 shown above. That was the Task 3.2 acceptance boundary; Task 3.3 is now implemented in development
-as documented below. Phase 3 remains in progress and Task 3.4 has not started.
+as documented below. Phase 3 remains in progress; Task 3.4 is accepted for its own scope, while later tasks remain partial or planned.
 
 ### Task 3.3 isolated reference-Dell evidence — PASS
 
@@ -585,6 +587,31 @@ Use isolated temporary sources, a least-privilege test share/account and operato
 Do not repeat Phase 2 hardware scenarios unless the Phase 3 change can affect them; reuse accepted
 display/audio/input evidence and focus on catalogue concurrency and source-path continuity.
 
+### Task 3.4 isolated reference-Dell evidence — PASS
+
+Validation used commit `0a8a7f0` from an independent temporary clone, a disposable Python 3.13
+virtual environment, generated media and disposable SQLite databases. The live production checkout
+`/opt/nostalgiabox`, production database/media, MPV/X/autologin/boot/systemd configuration and
+appliance runtime were not modified.
+
+- Debian GNU/Linux 13.6, Python 3.13.5; ffprobe/ffmpeg 7.1.5.
+- Full pytest: **396 passed, one warning, zero skips**.
+- Focused Task 3.4 suite: **35 passed, zero skips**.
+- Ruff lint, Ruff format (`128 files already formatted`) and strict mypy (`122 source files`):
+  **PASS**.
+- Alembic lifecycle: empty upgrade, repeat upgrade, downgrade to `20260810_0004`, and re-upgrade to
+  `20260914_0005`: **PASS**, including preservation of an existing `playable_renditions` foreign key.
+- Generated H.264/MKV media was inspected successfully: 1,000,000 microseconds, `matroska/webm`,
+  and a 64x64 H.264 video stream.
+- Tests covered typed failures, timeout/output bounds and process cleanup, malformed output, exact
+  duration/rational parsing, audio/subtitle extraction, version/capability refresh, stale-result
+  rejection, signature invalidation, immutable attempts/observations and no ffprobe-derived
+  `verified_playable` claim.
+
+The single warning is an unrelated Starlette/AnyIO deprecation warning. Task 3.4 is accepted for
+its defined scope; Task 3.5, broader catalogue identity policy, APIs, WebUI, NAS, and Phase 3 closure
+remain later work.
+
 ## Phase 3 exit review
 
 Closure requires a requirement-to-evidence traceability audit, all unapproved `PARTIAL`/`FAIL`
@@ -592,4 +619,4 @@ items resolved or reported as blockers, full backend/frontend quality suites, cl
 reference Dell/NAS/browser evidence, security/artifact audit, documented performance measurements,
 and confirmation that no Phase 4 scheduling or Phase 5 TV UI behavior was introduced.
 
-| Task 3.4 ffprobe domain/parser/coordinator/persistence | Unit parser and fake-runner coverage plus disposable migration lifecycle are present on the Task 3.4 branch; host validation blocked by missing Python 3.13 toolchain/dependencies | Isolated Dell validation pending after review | PARTIAL |
+| Task 3.4 ffprobe domain/parser/coordinator/persistence | Debian 13.6/Python 3.13.5: 396 pytest passed (one warning, zero skips), focused 35 passed; Ruff, format, strict mypy, ffprobe fixture and migration lifecycle passed | None for approved scope; later integration/concurrency evidence remains out of scope | PASS |

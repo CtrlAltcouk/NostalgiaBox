@@ -152,3 +152,48 @@ def test_invalid_average_rate_is_invalid_metadata_not_fallback() -> None:
 
     assert isinstance(result, ProbeFailure)
     assert result.code is ProbeFailureCode.INVALID_METADATA
+
+
+def test_adapter_normalizes_bounded_stream_text_and_dispositions() -> None:
+    payload = json.loads(_success().stdout)
+    streams = payload["streams"]
+    assert isinstance(streams, list)
+    video = streams[0]
+    assert isinstance(video, dict)
+    video["codec_name"] = " H.264 "
+    video["tags"] = {"language": " EN-gb "}
+    video["disposition"] = {" Forced ": 1, "default": True, "ignored": 0}
+    result = FfprobeAdapter(
+        FakeRunner(_version(), ProcessResult(0, json.dumps(payload).encode(), b""))
+    ).inspect("x", "sig")
+
+    assert isinstance(result, TechnicalMetadata)
+    stream = result.streams[0]
+    assert stream.codec_name == "h.264"
+    assert stream.language == "en-gb"
+    assert stream.disposition == ("default", "forced")
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        ("streams", 0, "codec_name", "x" * 97),
+        ("streams", 0, "width", True),
+        ("streams", 0, "avg_frame_rate", "1/0"),
+        ("format", None, "format_name", "x" * 97),
+    ],
+)
+def test_adapter_rejects_invalid_or_unbounded_metadata(
+    mutation: tuple[str, int | None, str, object],
+) -> None:
+    payload = json.loads(_success().stdout)
+    section, index, field, value = mutation
+    target = payload[section] if index is None else payload[section][index]
+    assert isinstance(target, dict)
+    target[field] = value
+    result = FfprobeAdapter(
+        FakeRunner(_version(), ProcessResult(0, json.dumps(payload).encode(), b""))
+    ).inspect("x", "sig")
+
+    assert isinstance(result, ProbeFailure)
+    assert result.code is ProbeFailureCode.INVALID_METADATA

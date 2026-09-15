@@ -65,3 +65,12 @@ def test_compatibility_is_conservative_policy_not_playability() -> None:
 
     assert compatible(candidate)
     assert not compatible(audio_only)
+
+
+def test_stream_fact_rejects_non_normalized_or_unbounded_text_facts() -> None:
+    with pytest.raises(ProbeDomainError, match="codec"):
+        StreamFact("video", " H264 ")
+    with pytest.raises(ProbeDomainError, match="language"):
+        StreamFact("audio", language="EN")
+    with pytest.raises(ProbeDomainError, match="disposition"):
+        StreamFact("subtitle", disposition=("Forced",))
