@@ -2,8 +2,9 @@
 
 ## Status and purpose
 
-**Planning status: In progress — 2026-08-09.** This document defines Phase 3 acceptance before
-production implementation begins. No Phase 3 implementation task is complete.
+**Planning status: In progress — 2026-08-09.** This document defines Phase 3 acceptance while
+implementation proceeds. Tasks 3.1–3.4 are complete for their approved scopes; later Phase 3 tasks
+and Phase 3 closure remain outstanding.
 
 Phase 3 makes local-folder and SMB/NAS media manageable through a local administration WebUI. It
 extends the accepted Phase 2 core: the backend remains authoritative, catalogue identity—not a UI

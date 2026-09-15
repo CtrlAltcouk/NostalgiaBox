@@ -426,18 +426,3 @@ but source/library workflows must not invent contracts independently.
 | `P3-UI` | 3.9, 3.10, 3.12 |
 | `P3-SEC` | 3.6, 3.9–3.12 |
 | `P3-CON` | 3.1, 3.3, 3.11, 3.12 |
-
-### Task 3.4 — ffprobe technical metadata
-
-**Acceptance status: PARTIAL / previous reference-Dell evidence covers `0a8a7f0`; current tip `2355e96f` requires revalidation.** This branch adds a separate
-probe domain, adapter and coordinator; discovery remains responsible only for cheap observations. Probe
-work snapshots the exact Task 3.3 signature, runs outside a database transaction, and persists immutable
-attempt/observation evidence only when the signature remains current. Changed discovery observations reset
-the current probe pointer. States are `discovered`, `inspected`, `compatible_candidate`, `unsupported` and
-`inspection_failed`; `compatible_candidate` is deliberately not `verified_playable`.
-
-The additive revision `20260914_0005` introduces current-pointer fields and immutable `probe_attempts` /
-`probe_observations`. Raw JSON is confined to the ffprobe adapter. Duration uses Decimal half-up microseconds;
-`avg_frame_rate` wins over `r_frame_rate` when valid, unknown rates fall back, and malformed rates fail closed.
-No Task 3.5 matching, replacement, duplicate reconciliation, API/UI/auth, SMB, MPV, or Phase 4 behavior is
-introduced. The prior disposable acceptance passed; validation of the post-report hardening remains pending.

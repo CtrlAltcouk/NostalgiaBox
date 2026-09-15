@@ -2,12 +2,12 @@
 
 ## Status
 
-**In progress — 2026-08-10.** Tasks 3.1, 3.2 and 3.3 are `PASS` for their approved scopes. Task
-3.3 isolated reference-Dell validation at commit `96c8cdae6476e080b718844fcac919fc0aa845b1` on
+**In progress — 2026-08-10.** Tasks 3.1, 3.2, 3.3 and 3.4 are `PASS` for their approved scopes.
+Task 3.3 isolated reference-Dell validation at commit `96c8cdae6476e080b718844fcac919fc0aa845b1` on
 Debian 13.6/Python 3.13.5 passed 360 tests (one warning, zero skips); the focused suite passed 86.
-Task 3.4 remains `PARTIAL` pending rerun of the reference-Dell validation against current tip
-`2355e96f`. The previous Debian 13.6/Python 3.13.5 validation of `0a8a7f0` passed 396 tests (one
-unrelated third-party deprecation warning, zero skips), with a focused 35-test suite.
+Task 3.4 was validated at implementation commit
+`31eba26aa4e037d306f9680ab715e3e5b42e4d86` with 418 full tests and 41 focused tests, as recorded
+below.
 Phase 3 as a whole remains in progress.
 
 Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
@@ -46,7 +46,7 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Changed observation at same locator | Cheap signature change detected, provisional ID retained and safe issue emitted; no replacement claim | Dell generated change passed; Task 3.5 owns final identity | PASS |
 | Duplicate | Weak candidate stays separate; full confirmation groups without deletion | Copy across source fixtures | PLANNED |
 | Ambiguous fingerprint/collision | No silent merge; attention issue emitted | Not required—synthetic collision | PLANNED |
-| Corrupt file | Controlled typed inspection failure is stored without raw diagnostics | Small operator-owned corrupt fixture | PARTIAL |
+| Corrupt file | Controlled typed inspection failure is stored without raw diagnostics | Generated corrupt media classified as `probe.corrupt_media` on the reference Dell | PASS |
 | Unsupported extension/content | Valid parsed media can persist `unsupported`; failures remain separate | Conservative policy tests; later catalogue policy remains separate | PASS |
 | ffprobe success | Adapter/parser tests cover duration/container/stream/rational fields | Generated H.264/MKV fixture on Dell with ffprobe 7.1.5 | PASS |
 | ffprobe timeout/failure/malformed output | Typed categories, child cleanup, bounded output and redaction pass | Dell subprocess cleanup smoke plus unit tests | PASS |
