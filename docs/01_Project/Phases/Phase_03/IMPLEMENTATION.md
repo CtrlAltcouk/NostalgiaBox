@@ -2,10 +2,9 @@
 
 ## Status and delivery rules
 
-**Implementation in progress — 2026-08-10.** Tasks 3.1 and 3.2 are accepted for their approved
-scope. Task 3.3 local discovery is accepted for its approved scope following documented isolated
-reference-Dell validation. Task 3.4 and later tasks have not started, and Phase 3 as a whole is not
-accepted. Each task requires its own branch, review, tests, migration lifecycle
+**Implementation in progress — 2026-09-14.** Tasks 3.1, 3.2, 3.3 and 3.4 are accepted for their
+approved scopes following documented validation. Task 3.5 and later tasks have not started, and
+Phase 3 as a whole is not accepted. Each task requires its own branch, review, tests, migration lifecycle
 where applicable, documentation and proportionate reference-Dell evidence. Phase 2 tests and
 architecture remain mandatory regression coverage.
 
@@ -226,8 +225,8 @@ Rules for every task:
 - **Requirement status:** Task 3.3 implements `P3-SCAN-03`, `05`, `07`, `08` and `09` in automated
   development evidence, plus the discovery/non-probe portions of `01`, `02` and `04`. `P3-SCAN-02`
   remains overall `PARTIAL` pending Task 3.5 rename/replacement/duplicate policy; `04` remains
-  broader `PARTIAL` pending Task 3.4 probe work; `06` remains `PARTIAL` pending reference-appliance
-  concurrency/performance evidence. The `P3-SCAN` group remains `PARTIAL`: this Task 3.3 acceptance
+  broader `PARTIAL` pending later identity/reconciliation work; `06` remains `PARTIAL` pending
+  reference-appliance concurrency/performance evidence. The `P3-SCAN` group remains `PARTIAL`: this Task 3.3 acceptance
   does not complete its later probe, identity-policy, performance or product-integration work.
 - **Reference-Dell safety evidence:** a generated temporary local fixture proved stable identity,
   missing/restoration, filters and symlink exclusion through the real scan lifecycle; focused
@@ -245,17 +244,45 @@ Rules for every task:
 
 ### Task 3.4 — ffprobe metadata and supported-format policy
 
-- **Objective:** Add structured technical inspection and transparent format states (`P3-PROBE`).
-- **Components:** `MediaProbe` port, typed metadata/stream values, `FfprobeAdapter`, capability/version
-  check, probe scheduling integration, metadata repositories.
-- **Migration:** technical metadata/streams, probe signature/version and state columns.
-- **Automated tests:** fake process runner JSON fixtures; exact duration/rational parsing; audio/
-  subtitle streams; timeout, missing binary, exit failure, malformed/oversized JSON, corrupt and
-  unsupported states; unchanged-file no-reprobe.
-- **Dell validation:** explicit ffprobe version plus small operator-owned known-good/corrupt fixtures;
-  no library-wide scan.
-- **Risks:** hostile metadata/output size, subprocess leaks and incorrect “playable” claims.
-- **Exit:** measured facts and failures persist through the typed boundary; no rich metadata matching.
+**Acceptance status: PASS for the approved Task 3.4 scope.** Reference-Dell validation was completed
+against implementation commit `31eba26aa4e037d306f9680ab715e3e5b42e4d86` on Debian 13.6/Python
+3.13.5 with ffprobe 7.1.5. The task adds structured
+technical inspection and transparent format states (`P3-PROBE`); discovery remains responsible
+only for cheap observations.
+
+- **Components:** typed probe facts and failure states; bounded `ffprobe` subprocess adapter and
+  capability check; separate probe coordinator/UoW; immutable attempts and observations; discovery
+  invalidation on changed cheap signatures.
+- **Persistence:** additive Alembic revision `20260914_0005` adds probe state/signature/version
+  pointers and immutable attempt/observation records. The SQLite migration uses direct additive
+  columns and preserves existing foreign-key data without table reconstruction.
+- **Safety semantics:** fixed argv with no shell or stdin, bounded output, process-group timeout
+  kill/reap with bounded cleanup, typed sanitized failures, exact duration/rational normalization,
+  stale-result rejection, capability-aware no-reprobe and current-pointer consistency. Historical
+  successful observations remain immutable; an ordinary
+  read cannot present one as current after a failed refresh. `verified_playable` remains outside the
+  authority of ffprobe alone.
+- **Scope boundary:** no Task 3.5 matching, replacement, duplicate reconciliation, API/UI/auth, SMB,
+  MPV, Phase 4, or Phase 5 behavior was introduced; no logical catalogue/rendition/media-item rows
+  are created by probing.
+
+**Reference-Dell evidence:** full pytest **418 passed, one warning, zero skips**; focused Task 3.4
+suite **41 passed**; Ruff lint **PASS**; Ruff format **PASS** (`128 files already formatted`);
+strict mypy **PASS** (`122 source files`); and Alembic empty upgrade, repeat upgrade, downgrade to
+`20260810_0004`, and re-upgrade to `20260914_0005` **PASS**. A generated H.264/MKV fixture was
+inspected through real ffprobe as `TechnicalMetadata` with duration 1,021,000 microseconds,
+`matroska/webm`, and video/audio streams; generated corrupt media was classified as
+`probe.corrupt_media`. Tests covered capability-aware no-reprobe and refresh, scan/probe
+lost-update protection, atomic stale-result rejection, capability changes, bounded cancellation
+cleanup, malformed/unsupported metadata and immutable evidence. Production application code,
+configuration, database, media and appliance runtime were not targeted; all validation used
+disposable resources.
+
+One unrelated Starlette/AnyIO deprecation warning remains recorded from the full suite. Broader
+`P3-SCAN`, Phase 3 closure, performance/concurrency evidence and later catalogue identity work remain
+`PARTIAL`; Task 3.5 has not started. Expert independently approved the final implementation and
+evidence. One non-blocking note is that simultaneous forced refreshes may append duplicate immutable
+evidence without corrupting current state.
 
 ### Task 3.5 — Rename, replacement and duplicate reconciliation
 
@@ -392,7 +419,7 @@ but source/library workflows must not invent contracts independently.
 | `P3-CAT` | 3.1, 3.5, 3.7, 3.12 |
 | `P3-SRC` | 3.2, 3.6, 3.8, 3.10, 3.12 |
 | `P3-SCAN` | 3.3, 3.4, 3.5, 3.6, 3.8, 3.10–3.12 |
-| `P3-PROBE` | 3.4, 3.12 |
+| `P3-PROBE` | 3.4 (automated evidence), 3.12 |
 | `P3-MATCH` | 3.7, 3.8, 3.10, 3.12 |
 | `P3-ART` | 3.7, 3.12 |
 | `P3-API` | 3.8, 3.11, 3.12 |

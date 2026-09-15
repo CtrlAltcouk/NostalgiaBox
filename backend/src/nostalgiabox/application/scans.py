@@ -15,6 +15,7 @@ from nostalgiabox.domain.catalogue import (
     MediaSource,
     MediaSourceId,
     MediaSourceKind,
+    ProbeState,
     SourceAvailability,
 )
 from nostalgiabox.domain.clock import Clock
@@ -540,6 +541,9 @@ class ScanCoordinator:
             first_observed_utc=first_observed,
             last_observed_utc=observed_at,
             missing_since_utc=None,
+            probe_state=ProbeState.DISCOVERED if changed else candidate.probe_state,
+            probe_observation_signature=None if changed else candidate.probe_observation_signature,
+            probe_capability_version=None if changed else candidate.probe_capability_version,
         )
         inventory.store(updated)
         if added:

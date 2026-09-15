@@ -20,6 +20,8 @@ _TABLES = {
     "media_items",
     "media_sources",
     "playable_renditions",
+    "probe_attempts",
+    "probe_observations",
     "scan_issues",
     "scan_runs",
     "timeline_entries",
@@ -37,16 +39,77 @@ def test_initial_migration_upgrade_repeat_downgrade_and_reupgrade(
     command.upgrade(config, "head")
     command.upgrade(config, "head")
     assert _table_names(database_url) == _TABLES
-    assert _current_revision(database_url) == "20260810_0004"
+    assert _current_revision(database_url) == "20260914_0005"
     _assert_catalogue_foundation_schema(database_url)
     _assert_source_lifecycle_schema(database_url)
     _assert_scan_discovery_schema(database_url)
+    _assert_probe_evidence_schema(database_url)
 
     command.downgrade(config, "base")
     assert _table_names(database_url) == {"alembic_version"}
 
     command.upgrade(config, "head")
     assert _table_names(database_url) == _TABLES
+
+
+def test_probe_migration_preserves_referenced_media_files(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    """SQLite upgrades must not rebuild media_files after prior FKs exist."""
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'probe-migration-references.db'}"
+    monkeypatch.setenv("NOSTALGIABOX_DATABASE_URL", database_url)
+    config = Config(str(_BACKEND_ROOT / "alembic.ini"))
+    command.upgrade(config, "20260810_0004")
+
+    engine = create_engine(Settings(environment="test", database_url=database_url))
+    try:
+        with engine.begin() as connection:
+            connection.execute(
+                text("INSERT INTO media_items VALUES ('item-1', 'Item', 1, '/item.mkv')")
+            )
+            connection.execute(text("INSERT INTO catalogue_items VALUES ('item-1')"))
+            connection.execute(
+                text("INSERT INTO media_sources (id, kind) VALUES ('source-1', 'local')")
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO media_files "
+                    "(id, source_id, normalized_relative_locator, original_relative_locator) "
+                    "VALUES ('file-1', 'source-1', 'item.mkv', 'item.mkv')"
+                )
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO playable_renditions "
+                    "VALUES ('rendition-1', 'item-1', 'file-1', 0, 1, 1, 0, 0)"
+                )
+            )
+    finally:
+        engine.dispose()
+
+    command.upgrade(config, "head")
+    engine = create_engine(Settings(environment="test", database_url=database_url))
+    try:
+        with engine.connect() as connection:
+            assert (
+                connection.execute(
+                    text("SELECT probe_state FROM media_files WHERE id = 'file-1'")
+                ).scalar_one()
+                == "discovered"
+            )
+    finally:
+        engine.dispose()
+
+    command.downgrade(config, "20260810_0004")
+    engine = create_engine(Settings(environment="test", database_url=database_url))
+    try:
+        assert "probe_state" not in {
+            column["name"] for column in inspect(engine).get_columns("media_files")
+        }
+    finally:
+        engine.dispose()
+    command.upgrade(config, "head")
 
 
 def _table_names(database_url: str) -> set[str]:
@@ -164,5 +227,50 @@ def _assert_scan_discovery_schema(database_url: str) -> None:
         assert "uq_scan_issues_run_key" in {
             constraint["name"] for constraint in inspector.get_unique_constraints("scan_issues")
         }
+    finally:
+        engine.dispose()
+
+
+def _assert_probe_evidence_schema(database_url: str) -> None:
+    engine = create_engine(Settings(environment="test", database_url=database_url))
+    try:
+        inspector = inspect(engine)
+        file_columns = {column["name"] for column in inspector.get_columns("media_files")}
+        assert {
+            "probe_state",
+            "probe_observation_signature",
+            "probe_capability_version",
+        }.issubset(file_columns)
+        with engine.connect() as connection:
+            media_file_sql = connection.scalar(
+                text("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'media_files'")
+            )
+        assert media_file_sql is not None
+        assert (
+            "probe_state IN ('discovered', 'inspected', 'compatible_candidate', " in media_file_sql
+        )
+        assert "ck_media_files_probe_evidence" in media_file_sql
+        attempt_indexes = {index["name"] for index in inspector.get_indexes("probe_attempts")}
+        observation_indexes = {
+            index["name"] for index in inspector.get_indexes("probe_observations")
+        }
+        assert "ix_probe_attempts_file_attempted" in attempt_indexes
+        assert "ix_probe_observations_file_signature_capability" in observation_indexes
+        with engine.connect() as connection:
+            attempt_sql = connection.scalar(
+                text(
+                    "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'probe_attempts'"
+                )
+            )
+            observation_sql = connection.scalar(
+                text(
+                    "SELECT sql FROM sqlite_master WHERE type = 'table' "
+                    "AND name = 'probe_observations'"
+                )
+            )
+        assert attempt_sql is not None
+        assert observation_sql is not None
+        assert "ck_probe_attempts_failure_pair" in attempt_sql
+        assert "ck_probe_observations_duration_nonnegative" in observation_sql
     finally:
         engine.dispose()
