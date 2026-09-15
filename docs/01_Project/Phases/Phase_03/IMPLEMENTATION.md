@@ -244,8 +244,10 @@ Rules for every task:
 
 ### Task 3.4 — ffprobe metadata and supported-format policy
 
-**Acceptance status: PASS for the approved Task 3.4 scope.** Reference-Dell validation was completed
-against implementation commit `0a8a7f0` on Debian 13.6/Python 3.13.5. The task adds structured
+**Acceptance status: PARTIAL pending validation of the current tip.** The previous reference-Dell
+validation was completed against implementation commit `0a8a7f0` on Debian 13.6/Python 3.13.5;
+post-validation hardening is present in current tip `2355e96f` and requires the same validation
+rerun before acceptance. The task adds structured
 technical inspection and transparent format states (`P3-PROBE`); discovery remains responsible
 only for cheap observations.
 
@@ -424,7 +426,7 @@ but source/library workflows must not invent contracts independently.
 
 ### Task 3.4 — ffprobe technical metadata
 
-**Acceptance status: PARTIAL / automated Python 3.13 validation passed; independent reference-Dell evidence pending.** This branch adds a separate
+**Acceptance status: PARTIAL / previous reference-Dell evidence covers `0a8a7f0`; current tip `2355e96f` requires revalidation.** This branch adds a separate
 probe domain, adapter and coordinator; discovery remains responsible only for cheap observations. Probe
 work snapshots the exact Task 3.3 signature, runs outside a database transaction, and persists immutable
 attempt/observation evidence only when the signature remains current. Changed discovery observations reset
@@ -435,4 +437,4 @@ The additive revision `20260914_0005` introduces current-pointer fields and immu
 `probe_observations`. Raw JSON is confined to the ffprobe adapter. Duration uses Decimal half-up microseconds;
 `avg_frame_rate` wins over `r_frame_rate` when valid, unknown rates fall back, and malformed rates fail closed.
 No Task 3.5 matching, replacement, duplicate reconciliation, API/UI/auth, SMB, MPV, or Phase 4 behavior is
-introduced. Disposable automated acceptance passed; independent reference-Dell ffprobe evidence remains pending.
+introduced. The prior disposable acceptance passed; validation of the post-report hardening remains pending.

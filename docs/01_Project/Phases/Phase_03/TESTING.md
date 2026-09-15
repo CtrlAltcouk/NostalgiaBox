@@ -5,8 +5,9 @@
 **In progress — 2026-08-10.** Tasks 3.1, 3.2 and 3.3 are `PASS` for their approved scopes. Task
 3.3 isolated reference-Dell validation at commit `96c8cdae6476e080b718844fcac919fc0aa845b1` on
 Debian 13.6/Python 3.13.5 passed 360 tests (one warning, zero skips); the focused suite passed 86.
-Task 3.4 is `PASS` for its approved scope: Debian 13.6/Python 3.13.5 reference-Dell validation passed
-396 tests (one unrelated third-party deprecation warning, zero skips), with a focused 35-test suite.
+Task 3.4 remains `PARTIAL` pending rerun of the reference-Dell validation against current tip
+`2355e96f`. The previous Debian 13.6/Python 3.13.5 validation of `0a8a7f0` passed 396 tests (one
+unrelated third-party deprecation warning, zero skips), with a focused 35-test suite.
 Phase 3 as a whole remains in progress.
 
 Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
@@ -587,7 +588,7 @@ Use isolated temporary sources, a least-privilege test share/account and operato
 Do not repeat Phase 2 hardware scenarios unless the Phase 3 change can affect them; reuse accepted
 display/audio/input evidence and focus on catalogue concurrency and source-path continuity.
 
-### Task 3.4 isolated reference-Dell evidence — PASS
+### Task 3.4 isolated reference-Dell evidence — PASS for `0a8a7f0`; current tip pending
 
 Validation used commit `0a8a7f0` from an independent temporary clone, a disposable Python 3.13
 virtual environment, generated media and disposable SQLite databases. The live production checkout
@@ -608,9 +609,9 @@ appliance runtime were not modified.
   rejection, signature invalidation, immutable attempts/observations and no ffprobe-derived
   `verified_playable` claim.
 
-The single warning is an unrelated Starlette/AnyIO deprecation warning. Task 3.4 is accepted for
-its defined scope; Task 3.5, broader catalogue identity policy, APIs, WebUI, NAS, and Phase 3 closure
-remain later work.
+The single warning is an unrelated Starlette/AnyIO deprecation warning. These results accept the
+`0a8a7f0` implementation state only; the post-validation hardening at `2355e96f` is not yet accepted.
+Task 3.5, broader catalogue identity policy, APIs, WebUI, NAS, and Phase 3 closure remain later work.
 
 ## Phase 3 exit review
 
@@ -619,4 +620,4 @@ items resolved or reported as blockers, full backend/frontend quality suites, cl
 reference Dell/NAS/browser evidence, security/artifact audit, documented performance measurements,
 and confirmation that no Phase 4 scheduling or Phase 5 TV UI behavior was introduced.
 
-| Task 3.4 ffprobe domain/parser/coordinator/persistence | Debian 13.6/Python 3.13.5: 396 pytest passed (one warning, zero skips), focused 35 passed; Ruff, format, strict mypy, ffprobe fixture and migration lifecycle passed | None for approved scope; later integration/concurrency evidence remains out of scope | PASS |
+| Task 3.4 ffprobe domain/parser/coordinator/persistence | Previous `0a8a7f0` validation: 396 pytest passed (one warning, zero skips), focused 35 passed; current `2355e96f` hardening awaits rerun | Reference-Dell rerun required before current-tip acceptance | PARTIAL |
