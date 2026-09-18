@@ -24,7 +24,13 @@ from nostalgiabox.persistence.catalogue_mappers import (
     media_file_to_record,
 )
 from nostalgiabox.persistence.codecs import datetime_to_epoch_microseconds
-from nostalgiabox.persistence.models import MediaFileRecord, ScanIssueRecord, ScanRunRecord
+from nostalgiabox.persistence.identity_repositories import active_identity
+from nostalgiabox.persistence.models import (
+    IdentityDiscoveryRecord,
+    MediaFileRecord,
+    ScanIssueRecord,
+    ScanRunRecord,
+)
 from nostalgiabox.persistence.scan_mappers import (
     scan_issue_from_record,
     scan_issue_to_record,
@@ -118,6 +124,7 @@ class SqlAlchemyMediaInventoryRepository:
         record = self._session.scalar(
             select(MediaFileRecord).where(
                 MediaFileRecord.source_id == source_id.value,
+                active_identity(),
                 MediaFileRecord.normalized_relative_locator == normalized_locator,
                 MediaFileRecord.presence == FilePresenceState.PRESENT.value,
             )
@@ -139,6 +146,14 @@ class SqlAlchemyMediaInventoryRepository:
         encoded = media_file_to_record(media_file)
         if record is None:
             self._session.add(encoded)
+            self._session.flush()
+            if media_file.last_seen_generation is not None:
+                self._session.add(
+                    IdentityDiscoveryRecord(
+                        media_file_id=media_file.id.value,
+                        generation=media_file.last_seen_generation,
+                    )
+                )
             return
         discovery_fields = (
             "source_id",
@@ -194,6 +209,7 @@ class SqlAlchemyMediaInventoryRepository:
             update(MediaFileRecord)
             .where(
                 MediaFileRecord.source_id == source_id.value,
+                active_identity(),
                 MediaFileRecord.presence == FilePresenceState.PRESENT.value,
                 (
                     (MediaFileRecord.last_seen_generation.is_(None))
@@ -217,6 +233,7 @@ class SqlAlchemyMediaInventoryRepository:
             select(MediaFileRecord)
             .where(
                 MediaFileRecord.source_id == source_id.value,
+                active_identity(),
                 MediaFileRecord.normalized_relative_locator == normalized_locator,
                 MediaFileRecord.presence == presence.value,
             )

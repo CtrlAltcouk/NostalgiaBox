@@ -5,6 +5,7 @@ from types import TracebackType
 from sqlalchemy.orm import Session, sessionmaker
 
 from nostalgiabox.persistence.catalogue_repositories import SqlAlchemyMediaSourceRepository
+from nostalgiabox.persistence.identity_repositories import SqlAlchemyIdentityRepository
 from nostalgiabox.persistence.scan_repositories import (
     SqlAlchemyMediaInventoryRepository,
     SqlAlchemyScanIssueRepository,
@@ -18,6 +19,7 @@ class SqlAlchemyScanUnitOfWork:
     def __init__(self, session_factory: sessionmaker[Session]) -> None:
         self._session_factory = session_factory
         self._session: Session | None = None
+        self.identities: SqlAlchemyIdentityRepository
         self.runs: SqlAlchemyScanRunRepository
         self.inventory: SqlAlchemyMediaInventoryRepository
         self.issues: SqlAlchemyScanIssueRepository
@@ -25,6 +27,7 @@ class SqlAlchemyScanUnitOfWork:
 
     def __enter__(self) -> "SqlAlchemyScanUnitOfWork":
         self._session = self._session_factory()
+        self.identities = SqlAlchemyIdentityRepository(self._session)
         self.runs = SqlAlchemyScanRunRepository(self._session)
         self.inventory = SqlAlchemyMediaInventoryRepository(self._session)
         self.issues = SqlAlchemyScanIssueRepository(self._session)

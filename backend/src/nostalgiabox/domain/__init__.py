@@ -36,6 +36,13 @@ from nostalgiabox.domain.exceptions import (
     TimelineOrderError,
     TimelineOverlapError,
 )
+from nostalgiabox.domain.identity import (
+    FingerprintEvidence,
+    IdentityEvidenceKind,
+    ReconciliationDecision,
+    ReconciliationState,
+    decide_move,
+)
 from nostalgiabox.domain.models import (
     Channel,
     ChannelId,
@@ -80,6 +87,8 @@ __all__ = [
     "ContentKind",
     "EmptyTimelineError",
     "FilePresenceState",
+    "FingerprintEvidence",
+    "IdentityEvidenceKind",
     "InvalidChannelError",
     "InvalidIdentifierError",
     "InvalidMediaFileError",
@@ -104,6 +113,8 @@ __all__ = [
     "PlayableRenditionId",
     "PreferredRenditionConflictError",
     "ProbeState",
+    "ReconciliationDecision",
+    "ReconciliationState",
     "RenditionOverlapError",
     "ResolvedTimelineEntry",
     "ScanCounters",
@@ -125,6 +136,7 @@ __all__ = [
     "TimelineOrderError",
     "TimelineOverlapError",
     "build_sequential_timeline",
+    "decide_move",
     "resolve_active_entry",
     "validate_physical_duration",
     "validate_rendition_set",

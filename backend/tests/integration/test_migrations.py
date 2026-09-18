@@ -14,6 +14,14 @@ from nostalgiabox.persistence.database import create_engine
 _BACKEND_ROOT = Path(__file__).parents[2]
 _TABLES = {
     "alembic_version",
+    "identity_transitions",
+    "identity_retirements",
+    "identity_discoveries",
+    "identity_discovery_resolutions",
+    "content_fingerprints",
+    "content_groups",
+    "content_group_members",
+    "duplicate_candidates",
     "catalogue_items",
     "channels",
     "media_files",
@@ -39,7 +47,7 @@ def test_initial_migration_upgrade_repeat_downgrade_and_reupgrade(
     command.upgrade(config, "head")
     command.upgrade(config, "head")
     assert _table_names(database_url) == _TABLES
-    assert _current_revision(database_url) == "20260914_0005"
+    assert _current_revision(database_url) == "20260915_0006"
     _assert_catalogue_foundation_schema(database_url)
     _assert_source_lifecycle_schema(database_url)
     _assert_scan_discovery_schema(database_url)

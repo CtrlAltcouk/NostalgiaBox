@@ -213,7 +213,6 @@ class LocalSourceService:
                 last_checked_utc=checked_at,
                 current_error_code=result.error_code,
                 current_error_message=result.error_message,
-                revision=current.revision + 1,
             )
             _store_revision_checked(unit_of_work, updated, current.revision)
             return updated

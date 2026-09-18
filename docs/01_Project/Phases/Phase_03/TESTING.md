@@ -8,6 +8,7 @@ Debian 13.6/Python 3.13.5 passed 360 tests (one warning, zero skips); the focuse
 Task 3.4 was validated at implementation commit
 `31eba26aa4e037d306f9680ab715e3e5b42e4d86` with 418 full tests and 41 focused tests, as recorded
 below.
+Task 3.5 has passed reference-Dell validation on 2026-09-18: **510 full tests** and **92 focused identity/fingerprint/migration tests** passed, with 19 migration/catalogue compatibility tests, clean Ruff/format/mypy/diff checks, generated filesystem scenarios, and bounded query-scaling evidence. Final evidence and the Expert APPROVE are recorded in [Task 3.5 audit and exact evidence](TASK_3_5.md). Task 3.5 is PASS for its approved scope; the branch remains unmerged.
 Phase 3 as a whole remains in progress.
 
 Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
@@ -42,10 +43,10 @@ Status vocabulary: `PLANNED`, `PASS`, `PARTIAL`, `FAIL`, `BLOCKED`, or
 | Unchanged incremental scan | Same IDs/signatures, no duplicates, unchanged count and successful-scan advance pass | Dell no-op rescan passed; probe skipping remains Task 3.4 | PASS |
 | File addition | Existing ID retained and one new `PRESENT` physical ID created | Dell generated local fixture passed; NAS remains later work | PASS |
 | File removal | Only successful authoritative scan marks retained row `MISSING`; failed/cancelled/source-changed scans do not | Dell generated local fixture and safety cases passed | PASS |
-| Rename/move | Unique strong evidence preserves file ID/match/override | Local and same-share rename | PLANNED |
+| Rename/move | Task 3.5 tests preserve ID/rendition on unambiguous local continuity; hash-only matches never merge | Reference-Dell generated rename/copy/replacement scenarios passed; same-share work deferred | PASS |
 | Changed observation at same locator | Cheap signature change detected, provisional ID retained and safe issue emitted; no replacement claim | Dell generated change passed; Task 3.5 owns final identity | PASS |
-| Duplicate | Weak candidate stays separate; full confirmation groups without deletion | Copy across source fixtures | PLANNED |
-| Ambiguous fingerprint/collision | No silent merge; attention issue emitted | Not required—synthetic collision | PLANNED |
+| Duplicate | Weak candidate stays separate; full confirmation groups without deletion | Reference-Dell generated copy/confirmation and membership scenarios passed | PASS |
+| Ambiguous fingerprint/collision | Task 3.5 quick/full conflicts, real sampled collision, cross-source separation and review projections pass | Reference-Dell generated collision and review scenarios passed; final Expert APPROVE | PASS |
 | Corrupt file | Controlled typed inspection failure is stored without raw diagnostics | Generated corrupt media classified as `probe.corrupt_media` on the reference Dell | PASS |
 | Unsupported extension/content | Valid parsed media can persist `unsupported`; failures remain separate | Conservative policy tests; later catalogue policy remains separate | PASS |
 | ffprobe success | Adapter/parser tests cover duration/container/stream/rational fields | Generated H.264/MKV fixture on Dell with ffprobe 7.1.5 | PASS |

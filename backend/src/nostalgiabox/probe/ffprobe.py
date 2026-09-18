@@ -27,6 +27,7 @@ from nostalgiabox.domain.probe import (
 
 _READ_CHUNK_SIZE = 64 * 1024
 _CLEANUP_TIMEOUT_SECONDS = 0.2
+_PROCESS_GROUP_SETTLE_POLL_SECONDS = 0.005
 _CAPABILITY_POLICY = b"nostalgiabox.ffprobe.metadata-schema-v1"
 
 
@@ -137,7 +138,6 @@ class SubprocessRunner:
             os.killpg(process.pid, signal.SIGKILL)
         try:
             process.communicate(timeout=_CLEANUP_TIMEOUT_SECONDS)
-            return
         except subprocess.TimeoutExpired:
             pass
         finally:
@@ -147,6 +147,37 @@ class SubprocessRunner:
                         stream.close()
         with contextlib.suppress(subprocess.TimeoutExpired):
             process.wait(timeout=_CLEANUP_TIMEOUT_SECONDS)
+        _wait_for_process_group_to_stop(process.pid)
+
+
+def _wait_for_process_group_to_stop(process_group_id: int) -> None:
+    """Wait briefly for killed Linux process-group members to leave runnable state."""
+    deadline = time.monotonic() + _CLEANUP_TIMEOUT_SECONDS
+    while _process_group_has_live_member(process_group_id):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return
+        time.sleep(min(_PROCESS_GROUP_SETTLE_POLL_SECONDS, remaining))
+
+
+def _process_group_has_live_member(process_group_id: int) -> bool:
+    """Return false when procfs is unavailable or no group member remains runnable."""
+    try:
+        proc_entries = os.scandir("/proc")
+    except OSError:
+        return False
+    with proc_entries:
+        for entry in proc_entries:
+            if not entry.name.isdecimal():
+                continue
+            try:
+                with open(entry.path + "/stat") as stat_file:
+                    fields = stat_file.read().rpartition(")")[2].split()
+                if fields[0] != "Z" and int(fields[2]) == process_group_id:
+                    return True
+            except (FileNotFoundError, IndexError, OSError, ValueError):
+                continue
+    return False
 
 
 class FfprobeAdapter:

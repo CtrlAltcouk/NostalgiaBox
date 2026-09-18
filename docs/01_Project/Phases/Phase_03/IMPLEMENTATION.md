@@ -2,8 +2,9 @@
 
 ## Status and delivery rules
 
-**Implementation in progress — 2026-09-14.** Tasks 3.1, 3.2, 3.3 and 3.4 are accepted for their
-approved scopes following documented validation. Task 3.5 and later tasks have not started, and
+**Implementation in progress — 2026-09-18.** Tasks 3.1, 3.2, 3.3, 3.4 and 3.5 are accepted for
+their approved scopes following documented validation. Task 3.5's [audit and evidence](TASK_3_5.md)
+records the reference-Dell PASS and final Expert APPROVE. Tasks 3.6+ have not started, and
 Phase 3 as a whole is not accepted. Each task requires its own branch, review, tests, migration lifecycle
 where applicable, documentation and proportionate reference-Dell evidence. Phase 2 tests and
 architecture remain mandatory regression coverage.
@@ -286,6 +287,12 @@ evidence without corrupting current state.
 
 ### Task 3.5 — Rename, replacement and duplicate reconciliation
 
+**Reference-Dell validation PASS — 2026-09-18; Task 3.5 accepted for its approved scope.** Dell full
+suite: 510 passed with one warning; focused identity tests: 92 passed; migration/catalogue tests: 19
+passed; Ruff, format, strict mypy and diff checks passed. See [TASK_3_5.md](TASK_3_5.md) for the
+additive revision `20260915_0006`, generated-files evidence, query-scaling measurements, risks and
+final Expert approval. The branch remains unmerged; Task 3.6 has not started.
+
 - **Objective:** Implement the tiered observation/fingerprint identity policy (`P3-CAT-03`–`08`).
 - **Components:** quick/full fingerprint port and adapter, reconciliation policy, duplicate candidate
   and confirmation services, issue projections.
@@ -293,8 +300,8 @@ evidence without corrupting current state.
 - **Automated tests:** same-path unchanged/change/replacement; local inode hint; unique rename;
   ambiguous move; partial-hash collision simulation; cross-source duplicate; optional full-hash
   confirmation; zero user-file mutations.
-- **Dell validation:** temporary generated files across rename/copy/replace operations; benchmark
-  sample size and hashing cost.
+- **Dell validation:** temporary generated files across rename/copy/replace operations; query scaling
+  and hashing-cost measurements passed on the reference Dell.
 - **Risks:** false identity merges are worse than duplicates; ambiguity must stop auto-merge.
 - **Exit:** stable IDs survive confident moves and collisions remain reviewable.
 

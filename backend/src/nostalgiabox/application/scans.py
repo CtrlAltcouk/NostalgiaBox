@@ -7,6 +7,11 @@ from datetime import datetime
 from enum import StrEnum
 from typing import Protocol, Self
 
+from nostalgiabox.application.identity import (
+    IdentityRepository,
+    StaleIdentityError,
+    reconcile_completed_scan,
+)
 from nostalgiabox.application.sources import LocalSourceGateway, SourceRepository
 from nostalgiabox.domain.catalogue import (
     FilePresenceState,
@@ -141,6 +146,9 @@ class ScanIssueRepository(Protocol):
 
 class ScanUnitOfWork(AbstractContextManager["ScanUnitOfWork"], Protocol):
     @property
+    def identities(self) -> IdentityRepository: ...
+
+    @property
     def runs(self) -> ScanRunRepository: ...
 
     @property
@@ -192,6 +200,7 @@ class ScanCoordinator:
         *,
         persistence_batch_size: int,
         progress_update_threshold: int,
+        identity_inspector: Callable[[MediaFileId], object] | None = None,
     ) -> None:
         if persistence_batch_size < 1:
             raise ValueError("scan persistence batch size must be positive")
@@ -205,6 +214,7 @@ class ScanCoordinator:
         self._run_id_factory = run_id_factory
         self._issue_id_factory = issue_id_factory
         self._media_file_id_factory = media_file_id_factory
+        self._identity_inspector = identity_inspector
         self._event_batch_size = min(persistence_batch_size, progress_update_threshold)
 
     def start_scan(self, source_id: MediaSourceId, kind: ScanKind) -> ScanRun:
@@ -362,7 +372,6 @@ class ScanCoordinator:
                 last_checked_utc=checked_at,
                 current_error_code=availability.error_code,
                 current_error_message=availability.error_message,
-                revision=current_source.revision + 1,
             )
             if not unit_of_work.sources.update(updated_source, current_source.revision):
                 raise ScanApplicationError("source changed during scan availability update")
@@ -403,6 +412,7 @@ class ScanCoordinator:
         self, run_id: ScanRunId, events: tuple[TraversalEvent, ...]
     ) -> _BatchPersistenceResult:
         observed_at = self._now("scan observation")
+        inspected_ids: list[MediaFileId] = []
         with self._unit_of_work_factory() as unit_of_work:
             run = _require_run(unit_of_work.runs, run_id)
             if run.status is not ScanStatus.RUNNING or run.cancellation_requested:
@@ -440,10 +450,12 @@ class ScanCoordinator:
                     continue
                 outcome, media_file, ambiguous = self._apply_observation(
                     unit_of_work.inventory,
+                    unit_of_work.identities,
                     run,
                     event,
                     observed_at,
                 )
+                inspected_ids.append(media_file.id)
                 if outcome is _ObservationOutcome.ALREADY_APPLIED:
                     continue
                 if outcome is _ObservationOutcome.ADDED:
@@ -457,7 +469,7 @@ class ScanCoordinator:
                         run.id,
                         f"file.changed_observation:{event.normalized_relative_locator}",
                         "file.changed_observation",
-                        "The cheap observation changed; identity remains provisional.",
+                        "The changed observation has a separate successor identity.",
                         ScanIssueSeverity.WARNING,
                         observed_at,
                         media_file_id=media_file.id,
@@ -480,11 +492,31 @@ class ScanCoordinator:
                     counters = counters.plus(issues=1)
             unit_of_work.runs.update(replace(run, counters=counters))
             unit_of_work.commit()
-            return _BatchPersistenceResult.APPLIED
+        if self._identity_inspector is not None:
+            for file_id in inspected_ids:
+                try:
+                    self._identity_inspector(file_id)
+                except Exception:
+                    with self._unit_of_work_factory() as unit_of_work:
+                        current_run = _require_run(unit_of_work.runs, run_id)
+                        current_run = self._add_issue_in_uow(
+                            unit_of_work,
+                            current_run,
+                            f"identity.read_failed:{file_id.value}",
+                            "identity.read_failed",
+                            "Content evidence could not be read safely.",
+                            ScanIssueSeverity.WARNING,
+                            observed_at,
+                            media_file_id=file_id,
+                        )
+                        unit_of_work.runs.update(current_run)
+                        unit_of_work.commit()
+        return _BatchPersistenceResult.APPLIED
 
     def _apply_observation(
         self,
         inventory: MediaInventoryRepository,
+        identities: IdentityRepository,
         run: ScanRun,
         observation: MediaFileObservation,
         observed_at: datetime,
@@ -495,6 +527,7 @@ class ScanCoordinator:
         ambiguous = False
         candidate = present
         added = False
+        newly_created = False
         if candidate is None:
             missing = inventory.list_missing(run.source_id, observation.normalized_relative_locator)
             if len(missing) == 1:
@@ -511,6 +544,7 @@ class ScanCoordinator:
                 elif len(historical) > 1:
                     ambiguous = True
             if candidate is None:
+                newly_created = True
                 candidate = MediaFile(
                     id=self._media_file_id_factory(),
                     source_id=run.source_id,
@@ -518,15 +552,51 @@ class ScanCoordinator:
                     original_relative_locator=observation.original_relative_locator,
                 )
                 added = True
+        if not newly_created and not identities.guard(candidate):
+            raise StaleIdentityError("discovery observation changed")
         old_signature = (
             candidate.normalized_relative_locator,
             candidate.size_bytes,
             candidate.modified_time_ns,
         )
-        changed = (
-            candidate.presence is not FilePresenceState.UNCLASSIFIED
-            and old_signature != observation.cheap_signature
+        changed = candidate.presence is not FilePresenceState.UNCLASSIFIED and (
+            old_signature != observation.cheap_signature
+            or (
+                candidate.device_id is not None
+                and observation.device_id is not None
+                and candidate.device_id != observation.device_id
+            )
+            or (
+                candidate.inode_id is not None
+                and observation.inode_id is not None
+                and candidate.inode_id != observation.inode_id
+            )
         )
+        if changed:
+            predecessor = candidate
+            # Enumeration is not authoritative yet. Preserve the old observation
+            # and reconcile the full source-wide graph only at completion.
+            inventory.store(
+                replace(
+                    predecessor, presence=FilePresenceState.MISSING, missing_since_utc=observed_at
+                )
+            )
+            candidate = MediaFile(
+                id=self._media_file_id_factory(),
+                source_id=run.source_id,
+                normalized_relative_locator=observation.normalized_relative_locator,
+                original_relative_locator=observation.original_relative_locator,
+                presence=FilePresenceState.MISSING,
+                size_bytes=observation.size_bytes,
+                modified_time_ns=observation.modified_time_ns,
+                device_id=observation.device_id,
+                inode_id=observation.inode_id,
+                last_seen_generation=run.generation,
+                first_observed_utc=observed_at,
+                last_observed_utc=observed_at,
+                missing_since_utc=observed_at,
+            )
+            inventory.store(candidate)
         first_observed = candidate.first_observed_utc or observed_at
         updated = replace(
             candidate,
@@ -577,10 +647,27 @@ class ScanCoordinator:
             missing_count = unit_of_work.inventory.mark_unseen_missing(
                 run.source_id, run.generation, finished_at
             )
+            attention = reconcile_completed_scan(
+                unit_of_work.identities,
+                run.source_id,
+                run.generation,
+                finished_at,
+            )
+            for file in attention:
+                run = self._add_issue_in_uow(
+                    unit_of_work,
+                    run,
+                    f"identity.ambiguous:{file.id.value}",
+                    "file.possible_duplicate",
+                    "Identity evidence is ambiguous; review is required.",
+                    ScanIssueSeverity.WARNING,
+                    finished_at,
+                    media_file_id=file.id,
+                    relative_locator=file.normalized_relative_locator,
+                )
             updated_source = replace(
                 source,
                 last_successful_scan_utc=finished_at,
-                revision=source.revision + 1,
             )
             if not unit_of_work.sources.update(updated_source, source.revision):
                 raise ScanApplicationError("source changed during scan reconciliation")
@@ -697,6 +784,9 @@ class ScanCoordinator:
         message: str,
         severity: ScanIssueSeverity,
         occurred_at: datetime,
+        *,
+        media_file_id: MediaFileId | None = None,
+        relative_locator: str | None = None,
     ) -> ScanRun:
         if unit_of_work.issues.add(
             self._issue(
@@ -706,6 +796,8 @@ class ScanCoordinator:
                 message,
                 severity,
                 occurred_at,
+                media_file_id=media_file_id,
+                relative_locator=relative_locator,
             )
         ):
             return replace(run, counters=run.counters.plus(issues=1))

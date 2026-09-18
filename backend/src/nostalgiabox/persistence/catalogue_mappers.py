@@ -98,6 +98,7 @@ def _optional_microseconds_to_datetime(value: int | None) -> datetime | None:
 def media_file_to_record(media_file: MediaFile) -> MediaFileRecord:
     return MediaFileRecord(
         id=media_file.id.value,
+        revision=media_file.revision,
         source_id=media_file.source_id.value,
         normalized_relative_locator=media_file.normalized_relative_locator,
         original_relative_locator=media_file.original_relative_locator,
@@ -120,6 +121,7 @@ def media_file_from_record(record: MediaFileRecord) -> MediaFile:
     try:
         return MediaFile(
             id=MediaFileId(record.id),
+            revision=record.revision,
             source_id=MediaSourceId(record.source_id),
             normalized_relative_locator=record.normalized_relative_locator,
             original_relative_locator=record.original_relative_locator,
