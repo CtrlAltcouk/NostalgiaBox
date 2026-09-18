@@ -3,12 +3,23 @@
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
 
 from nostalgiabox.domain.probe import ProbeFailureCode
-from nostalgiabox.probe.ffprobe import ProbeRunnerError, SubprocessRunner
+from nostalgiabox.probe.ffprobe import ProbeRunnerError, ProcessResult, SubprocessRunner
+
+
+def _wait_for_path(path: Path, timeout_seconds: float = 1.0) -> None:
+    """Bound test setup time while waiting for a subprocess readiness signal."""
+    deadline = time.monotonic() + timeout_seconds
+    while not path.exists():
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            pytest.fail(f"subprocess did not signal readiness: {path}")
+        time.sleep(min(0.005, remaining))
 
 
 def test_active_output_limit_kills_and_reaps_before_unbounded_capture() -> None:
@@ -101,7 +112,7 @@ def test_keyboard_interrupt_kills_and_reaps_the_process_group(
 
 
 def test_timeout_kills_descendant_after_direct_child_exits_with_inherited_pipes(
-    tmp_path: Path,
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     pid_path = tmp_path / "descendant.pid"
     child_script = (
@@ -113,6 +124,18 @@ def test_timeout_kills_descendant_after_direct_child_exits_with_inherited_pipes(
         "import subprocess, sys; "
         f"subprocess.Popen([sys.executable, '-c', {child_script!r}]); "
         "sys.exit(0)"
+    )
+
+    collect = SubprocessRunner._collect
+
+    def collect_after_descendant_is_ready(
+        process: subprocess.Popen[bytes], timeout_seconds: float, output_limit: int
+    ) -> ProcessResult:
+        _wait_for_path(pid_path)
+        return collect(process, timeout_seconds, output_limit)
+
+    monkeypatch.setattr(
+        SubprocessRunner, "_collect", staticmethod(collect_after_descendant_is_ready)
     )
 
     with pytest.raises(ProbeRunnerError) as raised:

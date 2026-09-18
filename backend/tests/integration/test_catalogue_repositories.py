@@ -140,6 +140,7 @@ def test_media_file_scanner_columns_add_only_observation_and_presence_state(
 
     assert columns == {
         "id",
+        "revision",
         "source_id",
         "normalized_relative_locator",
         "original_relative_locator",

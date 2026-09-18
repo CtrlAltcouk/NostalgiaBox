@@ -184,8 +184,9 @@ def test_initial_unchanged_add_change_remove_and_reappear_lifecycle(
             item.id
             for item in _files(factory, source.id)
             if item.normalized_relative_locator == "one.mkv"
+            and item.presence is FilePresenceState.PRESENT
         )
-        == original_id
+        != original_id
     )
     assert "file.changed_observation" in _issue_codes(factory, fourth.id)
 

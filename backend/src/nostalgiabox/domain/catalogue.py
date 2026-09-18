@@ -186,6 +186,7 @@ class MediaFile:
     first_observed_utc: datetime | None = None
     last_observed_utc: datetime | None = None
     missing_since_utc: datetime | None = None
+    revision: int = 1
     probe_state: ProbeState = ProbeState.DISCOVERED
     probe_observation_signature: str | None = None
     probe_capability_version: str | None = None

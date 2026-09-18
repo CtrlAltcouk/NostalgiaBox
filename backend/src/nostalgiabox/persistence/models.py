@@ -1,6 +1,7 @@
 """SQLAlchemy 2 mappings for the approved Task 2.3 schema."""
 
 from sqlalchemy import (
+    DDL,
     Boolean,
     CheckConstraint,
     ForeignKey,
@@ -8,6 +9,7 @@ from sqlalchemy import (
     Integer,
     String,
     UniqueConstraint,
+    event,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -164,6 +166,7 @@ class MediaFileRecord(Base):
         ),
     )
 
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, server_default="1")
     id: Mapped[str] = mapped_column(String, primary_key=True)
     source_id: Mapped[str] = mapped_column(
         ForeignKey("media_sources.id", ondelete="RESTRICT"), nullable=False
@@ -478,3 +481,152 @@ class ProbeObservationRecord(Base):
     streams_json: Mapped[str] = mapped_column(String, nullable=False)
     compatible_candidate: Mapped[bool] = mapped_column(Boolean, nullable=False)
     inspected_utc_us: Mapped[int] = mapped_column(Integer, nullable=False)
+
+
+class IdentityTransitionRecord(Base):
+    """Append-only decision, including both observation snapshots."""
+
+    __tablename__ = "identity_transitions"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    predecessor_id: Mapped[str] = mapped_column(ForeignKey("media_files.id", ondelete="RESTRICT"))
+    successor_id: Mapped[str] = mapped_column(ForeignKey("media_files.id", ondelete="RESTRICT"))
+    predecessor_snapshot: Mapped[str] = mapped_column(String, nullable=False)
+    successor_snapshot: Mapped[str] = mapped_column(String, nullable=False)
+    reason: Mapped[str] = mapped_column(String, nullable=False)
+    occurred_utc_us: Mapped[int] = mapped_column(Integer, nullable=False)
+    __table_args__ = (
+        CheckConstraint("kind IN ('replacement', 'confident_rename', 'needs_attention')"),
+        CheckConstraint("predecessor_id != successor_id"),
+        UniqueConstraint(
+            "kind",
+            "predecessor_id",
+            "successor_id",
+            "predecessor_snapshot",
+            "successor_snapshot",
+            "reason",
+            name="uq_identity_transition_decision",
+        ),
+        Index("ix_identity_transitions_predecessor", "predecessor_id"),
+        Index("ix_identity_transitions_successor", "successor_id"),
+    )
+
+
+class IdentityRetirementRecord(Base):
+    __tablename__ = "identity_retirements"
+    media_file_id: Mapped[str] = mapped_column(
+        ForeignKey("media_files.id", ondelete="RESTRICT"), primary_key=True
+    )
+    transition_id: Mapped[str] = mapped_column(
+        ForeignKey("identity_transitions.id", ondelete="RESTRICT")
+    )
+
+
+class ContentFingerprintRecord(Base):
+    __tablename__ = "content_fingerprints"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    media_file_id: Mapped[str] = mapped_column(ForeignKey("media_files.id", ondelete="RESTRICT"))
+    snapshot: Mapped[str] = mapped_column(String, nullable=False)
+    kind: Mapped[str] = mapped_column(String, nullable=False)
+    algorithm: Mapped[str] = mapped_column(String, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    digest: Mapped[str] = mapped_column(String, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    __table_args__ = (
+        CheckConstraint(
+            "version > 0 AND size_bytes >= 0 AND length(digest) = 64 "
+            "AND digest NOT GLOB '*[^0-9a-f]*'"
+        ),
+        CheckConstraint(
+            "(kind = 'quick' AND algorithm = 'sha256-sampled') OR "
+            "(kind = 'full_sha256' AND algorithm = 'sha256')"
+        ),
+        Index("ix_fingerprint_candidates", "algorithm", "version", "digest", "size_bytes"),
+        Index("ix_fingerprint_observation", "media_file_id", "snapshot"),
+    )
+
+
+class ContentGroupRecord(Base):
+    __tablename__ = "content_groups"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    algorithm: Mapped[str] = mapped_column(String, nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False)
+    digest: Mapped[str] = mapped_column(String, nullable=False)
+    size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    __table_args__ = (
+        CheckConstraint(
+            "algorithm = 'sha256' AND version > 0 AND size_bytes >= 0 AND length(digest) = 64 "
+            "AND digest NOT GLOB '*[^0-9a-f]*'"
+        ),
+        UniqueConstraint("algorithm", "version", "digest", "size_bytes"),
+    )
+
+
+class ContentGroupMemberRecord(Base):
+    __tablename__ = "content_group_members"
+    group_id: Mapped[str] = mapped_column(
+        ForeignKey("content_groups.id", ondelete="RESTRICT"), primary_key=True
+    )
+    evidence_id: Mapped[str] = mapped_column(
+        ForeignKey("content_fingerprints.id", ondelete="RESTRICT"), primary_key=True
+    )
+
+
+class DuplicateCandidateRecord(Base):
+    __tablename__ = "duplicate_candidates"
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    left_evidence_id: Mapped[str] = mapped_column(
+        ForeignKey("content_fingerprints.id", ondelete="RESTRICT")
+    )
+    right_evidence_id: Mapped[str] = mapped_column(
+        ForeignKey("content_fingerprints.id", ondelete="RESTRICT")
+    )
+    reason: Mapped[str] = mapped_column(String, nullable=False)
+    __table_args__ = (
+        UniqueConstraint("left_evidence_id", "right_evidence_id"),
+        CheckConstraint("left_evidence_id < right_evidence_id"),
+    )
+
+
+class IdentityDiscoveryRecord(Base):
+    __tablename__ = "identity_discoveries"
+    media_file_id: Mapped[str] = mapped_column(
+        ForeignKey("media_files.id", ondelete="RESTRICT"), primary_key=True
+    )
+    generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    __table_args__ = (CheckConstraint("generation > 0"),)
+
+
+class IdentityDiscoveryResolutionRecord(Base):
+    """Immutable terminal lifecycle of a discovery from an incomplete scan."""
+
+    __tablename__ = "identity_discovery_resolutions"
+    media_file_id: Mapped[str] = mapped_column(
+        ForeignKey("identity_discoveries.media_file_id", ondelete="RESTRICT"), primary_key=True
+    )
+    lifecycle: Mapped[str] = mapped_column(String, nullable=False)
+    authoritative_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    __table_args__ = (
+        CheckConstraint("lifecycle IN ('resolved', 'stale')"),
+        CheckConstraint("authoritative_generation > 0"),
+    )
+
+
+# Keep metadata-created test databases on the same revision contract as Alembic.
+
+event.listen(
+    MediaFileRecord.__table__,
+    "after_create",
+    DDL(  # type: ignore[no-untyped-call]
+        "CREATE TRIGGER media_files_identity_revision AFTER UPDATE ON media_files WHEN "
+        "OLD.source_id IS NOT NEW.source_id OR "
+        "OLD.normalized_relative_locator IS NOT NEW.normalized_relative_locator OR "
+        "OLD.original_relative_locator IS NOT NEW.original_relative_locator OR "
+        "OLD.presence IS NOT NEW.presence OR "
+        "OLD.size_bytes IS NOT NEW.size_bytes OR "
+        "OLD.modified_time_ns IS NOT NEW.modified_time_ns OR "
+        "OLD.device_id IS NOT NEW.device_id OR "
+        "OLD.inode_id IS NOT NEW.inode_id BEGIN "
+        "UPDATE media_files SET revision = OLD.revision + 1 WHERE id = NEW.id; END"
+    ).execute_if(dialect="sqlite"),
+)
