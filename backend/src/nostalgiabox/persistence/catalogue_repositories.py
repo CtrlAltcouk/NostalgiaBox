@@ -224,6 +224,10 @@ def _source_values(source: MediaSource) -> dict[str, object]:
         "current_error_message": record.current_error_message,
         "retired_utc_us": record.retired_utc_us,
         "revision": record.revision,
+        "smb_host": record.smb_host,
+        "smb_share": record.smb_share,
+        "smb_subpath": record.smb_subpath,
+        "credential_ref": record.credential_ref,
     }
 
 

@@ -171,7 +171,11 @@ def _task32_rows(database_url: str) -> dict[str, tuple[tuple[object, ...], ...]]
         "channels": "SELECT id, number, name FROM channels ORDER BY id",
         "timeline_entries": "SELECT * FROM timeline_entries ORDER BY id",
         "catalogue_items": "SELECT id FROM catalogue_items ORDER BY id",
-        "media_sources": "SELECT * FROM media_sources ORDER BY id",
+        "media_sources": (
+            "SELECT id, kind, display_name, configured_root, enabled, availability, "
+            "last_checked_utc_us, last_successful_scan_utc_us, current_error_code, "
+            "current_error_message, retired_utc_us, revision FROM media_sources ORDER BY id"
+        ),
         "media_files": (
             "SELECT id, source_id, normalized_relative_locator, original_relative_locator "
             "FROM media_files ORDER BY id"

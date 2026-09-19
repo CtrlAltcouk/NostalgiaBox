@@ -34,6 +34,7 @@ from nostalgiabox.domain import (
     ScanRun,
     ScanRunId,
     ScanStatus,
+    SmbShareConfig,
     SourceAvailability,
 )
 from nostalgiabox.persistence.catalogue_mappers import media_file_from_record
@@ -96,7 +97,7 @@ def test_real_temporary_local_scan_discovers_only_physical_eligible_files(
     assert _logical_counts(factory) == (0, 0, 0)
 
 
-@pytest.mark.parametrize("case", ["missing", "smb", "disabled", "retired", "rootless"])
+@pytest.mark.parametrize("case", ["missing", "unmanaged_smb", "disabled", "retired", "rootless"])
 def test_scan_rejects_ineligible_source_before_creating_run(
     persistence_engine: Engine,
     case: str,
@@ -106,7 +107,7 @@ def test_scan_rejects_ineligible_source_before_creating_run(
     if case != "missing":
         source = MediaSource(
             source_id,
-            MediaSourceKind.SMB if case == "smb" else MediaSourceKind.LOCAL,
+            MediaSourceKind.SMB if case == "unmanaged_smb" else MediaSourceKind.LOCAL,
             display_name="Source",
             configured_root=None if case == "rootless" else "/approved/source",
             enabled=case not in {"disabled", "retired"},
@@ -128,6 +129,41 @@ def test_scan_rejects_ineligible_source_before_creating_run(
 
     with factory() as session:
         assert session.scalar(select(func.count()).select_from(ScanRunRecord)) == 0
+
+
+def test_managed_smb_source_scans_its_derived_mount_path(
+    persistence_engine: Engine,
+) -> None:
+    factory = sessionmaker(bind=persistence_engine, autoflush=False, expire_on_commit=False)
+    source = MediaSource(
+        MediaSourceId("source-smb"),
+        MediaSourceKind.SMB,
+        display_name="NAS",
+        configured_root="/run/nostalgiabox/media/source-smb",
+        enabled=True,
+        smb_config=SmbShareConfig("nas.example", "archive"),
+        credential_ref="opaque-ref",
+    )
+    with factory() as session:
+        SqlAlchemyMediaSourceRepository(session).store(source)
+        session.commit()
+
+    gateway = _AvailableGateway()
+    run = _completed(
+        _coordinator(
+            factory,
+            _MutableTraversal([]),
+            gateway,
+            _InlineExecutor(),
+            FakeClock(_START),
+        ),
+        factory,
+        source.id,
+        ScanKind.FULL,
+    )
+
+    assert run.status is ScanStatus.COMPLETED
+    assert gateway.calls == ["/run/nostalgiabox/media/source-smb"]
 
 
 def test_initial_unchanged_add_change_remove_and_reappear_lifecycle(
@@ -607,11 +643,13 @@ def test_phase2_runtime_reads_same_database_during_scan_without_scanner_writes(
 class _AvailableGateway:
     def __init__(self) -> None:
         self.result = SourceAvailabilityResult(SourceAvailability.AVAILABLE)
+        self.calls: list[str] = []
 
     def validate_root(self, configured_root: str) -> str:
         return configured_root
 
     def check(self, configured_root: str) -> SourceAvailabilityResult:
+        self.calls.append(configured_root)
         return self.result
 
 

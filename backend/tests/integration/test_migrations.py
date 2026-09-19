@@ -47,7 +47,7 @@ def test_initial_migration_upgrade_repeat_downgrade_and_reupgrade(
     command.upgrade(config, "head")
     command.upgrade(config, "head")
     assert _table_names(database_url) == _TABLES
-    assert _current_revision(database_url) == "20260915_0006"
+    assert _current_revision(database_url) == "20260918_0007"
     _assert_catalogue_foundation_schema(database_url)
     _assert_source_lifecycle_schema(database_url)
     _assert_scan_discovery_schema(database_url)
@@ -183,6 +183,10 @@ def _assert_source_lifecycle_schema(database_url: str) -> None:
             "current_error_message",
             "retired_utc_us",
             "revision",
+            "smb_host",
+            "smb_share",
+            "smb_subpath",
+            "credential_ref",
         }.issubset(columns)
         indexes = {index["name"] for index in inspector.get_indexes("media_sources")}
         assert "ix_media_sources_enabled_availability" in indexes

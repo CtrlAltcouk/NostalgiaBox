@@ -15,6 +15,7 @@ from nostalgiabox.domain.catalogue import (
     PlayableRendition,
     PlayableRenditionId,
     ProbeState,
+    SmbShareConfig,
     SourceAvailability,
 )
 from nostalgiabox.domain.exceptions import TimelineDomainError
@@ -60,6 +61,10 @@ def media_source_to_record(source: MediaSource) -> MediaSourceRecord:
         current_error_message=source.current_error_message,
         retired_utc_us=_optional_datetime_to_microseconds(source.retired_utc),
         revision=source.revision,
+        smb_host=None if source.smb_config is None else source.smb_config.host,
+        smb_share=None if source.smb_config is None else source.smb_config.share,
+        smb_subpath=None if source.smb_config is None else source.smb_config.subpath,
+        credential_ref=source.credential_ref,
     )
 
 
@@ -80,6 +85,10 @@ def media_source_from_record(record: MediaSourceRecord) -> MediaSource:
             current_error_message=record.current_error_message,
             retired_utc=_optional_microseconds_to_datetime(record.retired_utc_us),
             revision=record.revision,
+            smb_config=None
+            if record.smb_host is None
+            else SmbShareConfig(record.smb_host, record.smb_share or "", record.smb_subpath or ""),
+            credential_ref=record.credential_ref,
         )
     except (CatalogueDomainError, TimelineDomainError, ValueError, OverflowError) as error:
         raise PersistenceConversionError(f"media source {record.id!r} is invalid") from error

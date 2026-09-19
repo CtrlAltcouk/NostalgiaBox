@@ -4,7 +4,7 @@
 
 **Implementation in progress — 2026-09-18.** Tasks 3.1, 3.2, 3.3, 3.4 and 3.5 are accepted for
 their approved scopes following documented validation. Task 3.5's [audit and evidence](TASK_3_5.md)
-records the reference-Dell PASS and final Expert APPROVE. Tasks 3.6+ have not started, and
+records the reference-Dell PASS and final Expert APPROVE. Task 3.6 implementation is in progress; Dell/NAS validation has not run, and
 Phase 3 as a whole is not accepted. Each task requires its own branch, review, tests, migration lifecycle
 where applicable, documentation and proportionate reference-Dell evidence. Phase 2 tests and
 architecture remain mandatory regression coverage.

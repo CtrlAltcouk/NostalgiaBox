@@ -12,6 +12,7 @@ from nostalgiabox.domain.catalogue import (
     MediaSourceKind,
     PlayableRendition,
     PlayableRenditionId,
+    SmbShareConfig,
     SourceAvailability,
 )
 from nostalgiabox.persistence.catalogue_mappers import (
@@ -69,3 +70,22 @@ def test_configured_media_source_round_trips_exact_lifecycle_state() -> None:
     )
 
     assert media_source_from_record(media_source_to_record(source)) == source
+
+
+def test_managed_smb_source_round_trips_without_secret_material() -> None:
+    source = MediaSource(
+        MediaSourceId("source-smb"),
+        MediaSourceKind.SMB,
+        display_name="NAS",
+        configured_root="/run/nostalgiabox/media/source-smb",
+        enabled=True,
+        smb_config=SmbShareConfig("nas.example", "archive", "films"),
+        credential_ref="opaque-credential-ref",
+    )
+
+    record = media_source_to_record(source)
+    assert record.smb_host == "nas.example"
+    assert record.smb_share == "archive"
+    assert record.smb_subpath == "films"
+    assert record.credential_ref == "opaque-credential-ref"
+    assert media_source_from_record(record) == source

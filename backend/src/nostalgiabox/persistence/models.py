@@ -96,6 +96,10 @@ class MediaSourceRecord(Base):
     current_error_message: Mapped[str | None] = mapped_column(String, nullable=True)
     retired_utc_us: Mapped[int | None] = mapped_column(Integer, nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    smb_host: Mapped[str | None] = mapped_column(String, nullable=True)
+    smb_share: Mapped[str | None] = mapped_column(String, nullable=True)
+    smb_subpath: Mapped[str | None] = mapped_column(String, nullable=True)
+    credential_ref: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class MediaFileRecord(Base):

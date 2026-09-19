@@ -841,14 +841,18 @@ def _require_run(repository: ScanRunRepository, run_id: ScanRunId) -> ScanRun:
 def _require_eligible_source(source: MediaSource | None) -> MediaSource:
     if source is None:
         raise ScanSourceNotEligibleError("scan source was not found")
-    if source.kind is not MediaSourceKind.LOCAL:
-        raise ScanSourceNotEligibleError("scan source is not local")
+    if source.kind not in (MediaSourceKind.LOCAL, MediaSourceKind.SMB):
+        raise ScanSourceNotEligibleError("scan source kind is unsupported")
     if not source.enabled:
         raise ScanSourceNotEligibleError("scan source is disabled")
     if source.retired_utc is not None:
         raise ScanSourceNotEligibleError("scan source is retired")
     if source.configured_root is None:
         raise ScanSourceNotEligibleError("scan source has no configured root")
+    if source.kind is MediaSourceKind.SMB and (
+        source.smb_config is None or source.credential_ref is None
+    ):
+        raise ScanSourceNotEligibleError("SMB source is not managed")
     return source
 
 
@@ -856,9 +860,13 @@ def _source_matches_snapshot(source: MediaSource | None, run: ScanRun) -> bool:
     return bool(
         source is not None
         and source.id == run.source_id
-        and source.kind is MediaSourceKind.LOCAL
+        and source.kind in (MediaSourceKind.LOCAL, MediaSourceKind.SMB)
         and source.enabled
         and source.retired_utc is None
         and source.configured_root == run.source_root
+        and (
+            source.kind is MediaSourceKind.LOCAL
+            or (source.smb_config is not None and source.credential_ref is not None)
+        )
         and source.revision == run.source_revision
     )

@@ -96,6 +96,25 @@ class SourceAvailability(StrEnum):
     ERROR = "error"
 
 
+@dataclass(frozen=True, slots=True)
+class SmbShareConfig:
+    host: str
+    share: str
+    subpath: str = ""
+
+    def __post_init__(self) -> None:
+        if (
+            not self.host
+            or not self.share
+            or any(c in self.host + self.share for c in "/\\@,:;\n\r")
+        ):
+            raise InvalidMediaSourceError("SMB host or share is malformed")
+        if self.subpath and (
+            self.subpath.startswith(("/", "\\")) or ".." in self.subpath.split("/")
+        ):
+            raise InvalidMediaSourceError("SMB subpath is malformed")
+
+
 class FilePresenceState(StrEnum):
     """Scanner classification without implying physical deletion or retirement."""
 
@@ -137,8 +156,20 @@ class MediaSource:
     current_error_message: str | None = None
     retired_utc: datetime | None = None
     revision: int = 1
+    smb_config: SmbShareConfig | None = None
+    credential_ref: str | None = None
 
     def __post_init__(self) -> None:
+        if self.kind is MediaSourceKind.SMB and (self.smb_config is None) != (
+            self.credential_ref is None
+        ):
+            raise InvalidMediaSourceError(
+                "managed SMB source requires config and credential ref together"
+            )
+        if self.kind is not MediaSourceKind.SMB and (
+            self.smb_config is not None or self.credential_ref is not None
+        ):
+            raise InvalidMediaSourceError("non-SMB source cannot carry SMB configuration")
         if self.display_name is not None and not self.display_name.strip():
             raise InvalidMediaSourceError("media-source display name must not be blank")
         if self.configured_root is not None:
